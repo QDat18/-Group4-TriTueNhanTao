@@ -17,7 +17,7 @@ MAX_IMAGES_PER_CLASS = 50
 IMAGE_SIZE = 112
 EMBEDDING_SIZE = 512
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 NUM_WORKERS = 2
 
 TOTAL_EPOCHS = 10
@@ -40,3 +40,6 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 CHECKPOINT_DIR = "checkpoints"
 CHECKPOINT_NAME = "arcface_vggface2_warmup.pth"
+
+LOG_DIR = "logs"
+TRAIN_LOG_PATH = os.path.join(LOG_DIR, "train_log.csv")
