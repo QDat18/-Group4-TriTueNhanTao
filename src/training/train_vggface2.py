@@ -28,11 +28,11 @@ from src.config import (
     TRAIN_LOG_PATH
 )
 
-from src.dataset_vggface2 import VGGFace2Dataset
-from src.transforms import get_train_transform
-from src.warmup_scheduler import get_warmup_cosine_lr, set_optimizer_lr
-from src.logger import CSVLogger
-
+from datasets.dataset_vggface2 import VGGFace2Dataset
+from utils.transforms import get_train_transform
+from utils.warmup_scheduler import get_warmup_cosine_lr, set_optimizer_lr
+from utils.logger import CSVLogger
+from config import *
 
 class FaceEmbeddingNet(nn.Module):
     """

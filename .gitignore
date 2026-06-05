@@ -12,3 +12,4 @@ env/
 *.njsproj
 *.sln
 *.swp
+dataset/
