@@ -6,11 +6,6 @@ from torch.utils.data import Dataset
 
 
 class VGGFace2Dataset(Dataset):
-    """
-    Dataset loader cho VGGFace2.
-
-    Mỗi thư mục con tương ứng với một danh tính.
-    """
     def __init__(
         self,
         root_dir: str,
