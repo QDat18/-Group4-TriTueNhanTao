@@ -10,6 +10,8 @@ from torch.utils.data import DataLoader
 from torchvision import models
 from tqdm import tqdm
 
+from torch.cuda.amp import autocast, GradScaler
+
 from src.config import (
     VGGFACE2_ROOT,
     USE_SUBSET,
@@ -34,26 +36,17 @@ from src.utils.warmup_scheduler import get_warmup_cosine_scheduler
 from src.utils.logger import CSVLogger
 
 
+torch.backends.cudnn.benchmark = True
+
+
 class FaceEmbeddingNet(nn.Module):
-    """
-    Backbone trích xuất đặc trưng khuôn mặt.
-
-    Phiên bản này dùng ResNet50 để kiểm tra pipeline huấn luyện.
-    Khi tích hợp iResNet-100, chỉ cần thay backbone tại class này.
-    """
-
     def __init__(self, embedding_size: int = 512) -> None:
         super().__init__()
 
         backbone = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
 
-        # Bỏ lớp phân loại cuối cùng của ResNet50
         self.feature_extractor = nn.Sequential(*list(backbone.children())[:-1])
-
-        # Đưa đặc trưng 2048 chiều về embedding 512 chiều
         self.embedding_layer = nn.Linear(2048, embedding_size)
-
-        # Ổn định embedding trước khi chuẩn hóa
         self.bn = nn.BatchNorm1d(embedding_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -63,20 +56,12 @@ class FaceEmbeddingNet(nn.Module):
         embeddings = self.embedding_layer(features)
         embeddings = self.bn(embeddings)
 
-        # Chuẩn hóa L2 để phù hợp với Cosine Similarity
         embeddings = F.normalize(embeddings, p=2, dim=1)
 
         return embeddings
 
 
 class ArcMarginProduct(nn.Module):
-    """
-    ArcFace Head.
-
-    Lớp này thêm angular margin vào vector đặc trưng để tăng khả năng
-    phân tách giữa các danh tính khác nhau.
-    """
-
     def __init__(
         self,
         embedding_size: int,
@@ -86,8 +71,6 @@ class ArcMarginProduct(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.embedding_size = embedding_size
-        self.num_classes = num_classes
         self.scale = scale
         self.margin = margin
 
@@ -116,9 +99,6 @@ class ArcMarginProduct(nn.Module):
 
 
 def calculate_accuracy(logits: torch.Tensor, labels: torch.Tensor) -> float:
-    """
-    Tính accuracy theo batch.
-    """
     preds = torch.argmax(logits, dim=1)
     correct = (preds == labels).sum().item()
     total = labels.size(0)
@@ -127,10 +107,6 @@ def calculate_accuracy(logits: torch.Tensor, labels: torch.Tensor) -> float:
 
 
 def calculate_gradient_norm(model: nn.Module, head: nn.Module) -> float:
-    """
-    Tính gradient norm của model và ArcFace Head.
-    Dùng để theo dõi độ ổn định trong quá trình huấn luyện.
-    """
     total_norm = 0.0
 
     for module in [model, head]:
@@ -143,10 +119,6 @@ def calculate_gradient_norm(model: nn.Module, head: nn.Module) -> float:
 
 
 def get_gpu_memory_mb() -> float:
-    """
-    Lấy dung lượng GPU đang sử dụng.
-    Nếu không có CUDA thì trả về 0.
-    """
     if torch.cuda.is_available():
         return torch.cuda.memory_allocated() / 1024 / 1024
 
@@ -162,9 +134,6 @@ def save_checkpoint(
     loss: float,
     save_path: str,
 ) -> None:
-    """
-    Lưu checkpoint tốt nhất trong quá trình huấn luyện.
-    """
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     torch.save({
@@ -183,18 +152,9 @@ def train_one_epoch(
     dataloader: DataLoader,
     optimizer: torch.optim.Optimizer,
     criterion: nn.Module,
+    scaler: GradScaler,
     device: str,
 ) -> Tuple[float, float, float, float, int]:
-    """
-    Huấn luyện một epoch.
-
-    Returns:
-        avg_loss: Loss trung bình.
-        avg_accuracy: Accuracy trung bình.
-        avg_embedding_norm: Norm trung bình của embedding.
-        avg_gradient_norm: Norm trung bình của gradient.
-        num_batches: Số batch đã chạy.
-    """
     model.train()
     arcface_head.train()
 
@@ -207,23 +167,27 @@ def train_one_epoch(
     progress_bar = tqdm(dataloader, desc="Training", leave=False)
 
     for images, labels in progress_bar:
-        images = images.to(device)
-        labels = labels.to(device)
+        images = images.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
 
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)
 
-        embeddings = model(images)
-        logits = arcface_head(embeddings, labels)
+        with autocast(enabled=torch.cuda.is_available()):
+            embeddings = model(images)
+            logits = arcface_head(embeddings, labels)
+            loss = criterion(logits, labels)
 
-        loss = criterion(logits, labels)
-        loss.backward()
+        scaler.scale(loss).backward()
 
+        # Unscale trước khi tính gradient norm để giá trị grad_norm là thật
+        scaler.unscale_(optimizer)
         grad_norm = calculate_gradient_norm(model, arcface_head)
 
-        optimizer.step()
+        scaler.step(optimizer)
+        scaler.update()
 
-        acc = calculate_accuracy(logits, labels)
-        emb_norm = embeddings.norm(dim=1).mean().item()
+        acc = calculate_accuracy(logits.detach(), labels)
+        emb_norm = embeddings.detach().norm(dim=1).mean().item()
 
         total_loss += loss.item()
         total_acc += acc
@@ -246,7 +210,7 @@ def train_one_epoch(
 
 def main() -> None:
     print("=" * 70)
-    print("TRAIN VGGFACE2 WITH WARM-UP + ARC FACE")
+    print("TRAIN VGGFACE2 WITH WARM-UP + ARC FACE + AMP")
     print("=" * 70)
 
     device = DEVICE
@@ -254,10 +218,9 @@ def main() -> None:
 
     if torch.cuda.is_available():
         print(f"GPU: {torch.cuda.get_device_name(0)}")
-
-    # =========================
-    # 1. Load dataset
-    # =========================
+        print("AMP: enabled")
+    else:
+        print("AMP: disabled")
 
     dataset = VGGFace2Dataset(
         root_dir=VGGFACE2_ROOT,
@@ -274,6 +237,7 @@ def main() -> None:
         shuffle=True,
         num_workers=NUM_WORKERS,
         pin_memory=torch.cuda.is_available(),
+        persistent_workers=NUM_WORKERS > 0,
     )
 
     print(f"Total images     : {len(dataset)}")
@@ -281,10 +245,6 @@ def main() -> None:
     print(f"Batch size       : {BATCH_SIZE}")
     print(f"Total epochs     : {TOTAL_EPOCHS}")
     print(f"Warm-up epochs   : {WARMUP_EPOCHS}")
-
-    # =========================
-    # 2. Build model
-    # =========================
 
     model = FaceEmbeddingNet(embedding_size=512).to(device)
 
@@ -311,14 +271,11 @@ def main() -> None:
         min_lr=MIN_LR,
     )
 
+    scaler = GradScaler(enabled=torch.cuda.is_available())
     logger = CSVLogger(TRAIN_LOG_PATH)
 
     best_loss = float("inf")
     checkpoint_path = os.path.join(CHECKPOINT_DIR, CHECKPOINT_NAME)
-
-    # =========================
-    # 3. Training loop
-    # =========================
 
     for epoch in range(TOTAL_EPOCHS):
         epoch_start_time = time.time()
@@ -332,6 +289,7 @@ def main() -> None:
             dataloader=dataloader,
             optimizer=optimizer,
             criterion=criterion,
+            scaler=scaler,
             device=device,
         )
 
