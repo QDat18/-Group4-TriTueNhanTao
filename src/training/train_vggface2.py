@@ -25,21 +25,21 @@ from src.config import (
     DEVICE,
     CHECKPOINT_DIR,
     CHECKPOINT_NAME,
-    TRAIN_LOG_PATH
+    TRAIN_LOG_PATH,
 )
 
-from datasets.dataset_vggface2 import VGGFace2Dataset
-from utils.transforms import get_train_transform
-from utils.warmup_scheduler import get_warmup_cosine_lr, set_optimizer_lr
-from utils.logger import CSVLogger
-from config import *
+from src.datasets.dataset_vggface2 import VGGFace2Dataset
+from src.utils.transforms import get_train_transform
+from src.utils.warmup_scheduler import get_warmup_cosine_scheduler
+from src.utils.logger import CSVLogger
+
 
 class FaceEmbeddingNet(nn.Module):
     """
     Backbone trích xuất đặc trưng khuôn mặt.
 
-    Phiên bản này dùng ResNet50 để test pipeline huấn luyện trước.
-    Khi tích hợp iResNet-100, chỉ cần thay phần backbone tại đây.
+    Phiên bản này dùng ResNet50 để kiểm tra pipeline huấn luyện.
+    Khi tích hợp iResNet-100, chỉ cần thay backbone tại class này.
     """
 
     def __init__(self, embedding_size: int = 512) -> None:
@@ -47,13 +47,13 @@ class FaceEmbeddingNet(nn.Module):
 
         backbone = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
 
-        # Bỏ lớp phân loại cuối của ResNet
+        # Bỏ lớp phân loại cuối cùng của ResNet50
         self.feature_extractor = nn.Sequential(*list(backbone.children())[:-1])
 
-        # Đưa đặc trưng về vector 512 chiều
+        # Đưa đặc trưng 2048 chiều về embedding 512 chiều
         self.embedding_layer = nn.Linear(2048, embedding_size)
 
-        # BatchNorm giúp embedding ổn định hơn
+        # Ổn định embedding trước khi chuẩn hóa
         self.bn = nn.BatchNorm1d(embedding_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -63,7 +63,7 @@ class FaceEmbeddingNet(nn.Module):
         embeddings = self.embedding_layer(features)
         embeddings = self.bn(embeddings)
 
-        # Chuẩn hóa embedding để phù hợp với cosine similarity
+        # Chuẩn hóa L2 để phù hợp với Cosine Similarity
         embeddings = F.normalize(embeddings, p=2, dim=1)
 
         return embeddings
@@ -71,11 +71,10 @@ class FaceEmbeddingNet(nn.Module):
 
 class ArcMarginProduct(nn.Module):
     """
-    Lớp ArcFace Head.
+    ArcFace Head.
 
-    Mục tiêu:
-    - Làm embedding của cùng một người gần nhau hơn.
-    - Làm embedding của những người khác nhau xa nhau hơn.
+    Lớp này thêm angular margin vào vector đặc trưng để tăng khả năng
+    phân tách giữa các danh tính khác nhau.
     """
 
     def __init__(
@@ -83,7 +82,7 @@ class ArcMarginProduct(nn.Module):
         embedding_size: int,
         num_classes: int,
         scale: float = 64.0,
-        margin: float = 0.5
+        margin: float = 0.5,
     ) -> None:
         super().__init__()
 
@@ -117,32 +116,40 @@ class ArcMarginProduct(nn.Module):
 
 
 def calculate_accuracy(logits: torch.Tensor, labels: torch.Tensor) -> float:
-    """Tính accuracy theo batch."""
+    """
+    Tính accuracy theo batch.
+    """
     preds = torch.argmax(logits, dim=1)
     correct = (preds == labels).sum().item()
     total = labels.size(0)
+
     return correct / total
 
 
-def calculate_gradient_norm(model: nn.Module) -> float:
+def calculate_gradient_norm(model: nn.Module, head: nn.Module) -> float:
     """
-    Tính gradient norm để theo dõi độ ổn định huấn luyện.
-    Nếu giá trị quá lớn, mô hình có thể bị gradient exploding.
+    Tính gradient norm của model và ArcFace Head.
+    Dùng để theo dõi độ ổn định trong quá trình huấn luyện.
     """
     total_norm = 0.0
 
-    for param in model.parameters():
-        if param.grad is not None:
-            param_norm = param.grad.data.norm(2)
-            total_norm += param_norm.item() ** 2
+    for module in [model, head]:
+        for param in module.parameters():
+            if param.grad is not None:
+                param_norm = param.grad.data.norm(2)
+                total_norm += param_norm.item() ** 2
 
     return total_norm ** 0.5
 
 
 def get_gpu_memory_mb() -> float:
-    """Lấy dung lượng GPU đang dùng, nếu có CUDA."""
+    """
+    Lấy dung lượng GPU đang sử dụng.
+    Nếu không có CUDA thì trả về 0.
+    """
     if torch.cuda.is_available():
         return torch.cuda.memory_allocated() / 1024 / 1024
+
     return 0.0
 
 
@@ -150,11 +157,14 @@ def save_checkpoint(
     model: nn.Module,
     arcface_head: nn.Module,
     optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.LambdaLR,
     epoch: int,
     loss: float,
-    save_path: str
+    save_path: str,
 ) -> None:
-    """Lưu checkpoint mô hình."""
+    """
+    Lưu checkpoint tốt nhất trong quá trình huấn luyện.
+    """
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     torch.save({
@@ -162,7 +172,8 @@ def save_checkpoint(
         "model_state_dict": model.state_dict(),
         "arcface_head_state_dict": arcface_head.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
-        "loss": loss
+        "scheduler_state_dict": scheduler.state_dict(),
+        "loss": loss,
     }, save_path)
 
 
@@ -172,17 +183,17 @@ def train_one_epoch(
     dataloader: DataLoader,
     optimizer: torch.optim.Optimizer,
     criterion: nn.Module,
-    device: str
+    device: str,
 ) -> Tuple[float, float, float, float, int]:
     """
     Huấn luyện một epoch.
 
     Returns:
-        avg_loss
-        avg_accuracy
-        avg_embedding_norm
-        avg_gradient_norm
-        num_batches
+        avg_loss: Loss trung bình.
+        avg_accuracy: Accuracy trung bình.
+        avg_embedding_norm: Norm trung bình của embedding.
+        avg_gradient_norm: Norm trung bình của gradient.
+        num_batches: Số batch đã chạy.
     """
     model.train()
     arcface_head.train()
@@ -205,10 +216,9 @@ def train_one_epoch(
         logits = arcface_head(embeddings, labels)
 
         loss = criterion(logits, labels)
-
         loss.backward()
 
-        grad_norm = calculate_gradient_norm(model)
+        grad_norm = calculate_gradient_norm(model, arcface_head)
 
         optimizer.step()
 
@@ -223,13 +233,13 @@ def train_one_epoch(
 
         progress_bar.set_postfix({
             "loss": f"{loss.item():.4f}",
-            "acc": f"{acc * 100:.2f}%"
+            "acc": f"{acc * 100:.2f}%",
         })
 
-    avg_loss = total_loss / num_batches
-    avg_accuracy = total_acc / num_batches
-    avg_embedding_norm = total_embedding_norm / num_batches
-    avg_gradient_norm = total_gradient_norm / num_batches
+    avg_loss = total_loss / max(1, num_batches)
+    avg_accuracy = total_acc / max(1, num_batches)
+    avg_embedding_norm = total_embedding_norm / max(1, num_batches)
+    avg_gradient_norm = total_gradient_norm / max(1, num_batches)
 
     return avg_loss, avg_accuracy, avg_embedding_norm, avg_gradient_norm, num_batches
 
@@ -253,7 +263,7 @@ def main() -> None:
         root_dir=VGGFACE2_ROOT,
         transform=get_train_transform(),
         max_classes=MAX_CLASSES if USE_SUBSET else None,
-        max_images_per_class=MAX_IMAGES_PER_CLASS if USE_SUBSET else None
+        max_images_per_class=MAX_IMAGES_PER_CLASS if USE_SUBSET else None,
     )
 
     num_classes = len(dataset.class_to_idx)
@@ -263,14 +273,14 @@ def main() -> None:
         batch_size=BATCH_SIZE,
         shuffle=True,
         num_workers=NUM_WORKERS,
-        pin_memory=torch.cuda.is_available()
+        pin_memory=torch.cuda.is_available(),
     )
 
-    print(f"Total images: {len(dataset)}")
-    print(f"Total identities: {num_classes}")
-    print(f"Batch size: {BATCH_SIZE}")
-    print(f"Total epochs: {TOTAL_EPOCHS}")
-    print(f"Warm-up epochs: {WARMUP_EPOCHS}")
+    print(f"Total images     : {len(dataset)}")
+    print(f"Total identities : {num_classes}")
+    print(f"Batch size       : {BATCH_SIZE}")
+    print(f"Total epochs     : {TOTAL_EPOCHS}")
+    print(f"Warm-up epochs   : {WARMUP_EPOCHS}")
 
     # =========================
     # 2. Build model
@@ -282,7 +292,7 @@ def main() -> None:
         embedding_size=512,
         num_classes=num_classes,
         scale=64.0,
-        margin=0.5
+        margin=0.5,
     ).to(device)
 
     criterion = nn.CrossEntropyLoss()
@@ -290,7 +300,15 @@ def main() -> None:
     optimizer = torch.optim.AdamW(
         list(model.parameters()) + list(arcface_head.parameters()),
         lr=BASE_LR,
-        weight_decay=WEIGHT_DECAY
+        weight_decay=WEIGHT_DECAY,
+    )
+
+    scheduler = get_warmup_cosine_scheduler(
+        optimizer=optimizer,
+        warmup_epochs=WARMUP_EPOCHS,
+        total_epochs=TOTAL_EPOCHS,
+        base_lr=BASE_LR,
+        min_lr=MIN_LR,
     )
 
     logger = CSVLogger(TRAIN_LOG_PATH)
@@ -306,16 +324,7 @@ def main() -> None:
         epoch_start_time = time.time()
 
         phase = "WARM-UP" if epoch < WARMUP_EPOCHS else "COSINE-DECAY"
-
-        current_lr = get_warmup_cosine_lr(
-            current_epoch=epoch,
-            total_epochs=TOTAL_EPOCHS,
-            warmup_epochs=WARMUP_EPOCHS,
-            base_lr=BASE_LR,
-            min_lr=MIN_LR
-        )
-
-        set_optimizer_lr(optimizer, current_lr)
+        current_lr = optimizer.param_groups[0]["lr"]
 
         train_loss, train_acc, emb_norm, grad_norm, num_batches = train_one_epoch(
             model=model,
@@ -323,8 +332,10 @@ def main() -> None:
             dataloader=dataloader,
             optimizer=optimizer,
             criterion=criterion,
-            device=device
+            device=device,
         )
+
+        scheduler.step()
 
         epoch_time = time.time() - epoch_start_time
         gpu_memory = get_gpu_memory_mb()
@@ -333,14 +344,17 @@ def main() -> None:
 
         if train_loss < best_loss:
             best_loss = train_loss
+
             save_checkpoint(
                 model=model,
                 arcface_head=arcface_head,
                 optimizer=optimizer,
+                scheduler=scheduler,
                 epoch=epoch + 1,
                 loss=train_loss,
-                save_path=checkpoint_path
+                save_path=checkpoint_path,
             )
+
             checkpoint_saved = True
 
         logger.log({
@@ -355,7 +369,7 @@ def main() -> None:
             "epoch_time_sec": round(epoch_time, 2),
             "device": device,
             "gpu_memory_mb": round(gpu_memory, 2),
-            "checkpoint_saved": checkpoint_saved
+            "checkpoint_saved": checkpoint_saved,
         })
 
         print("=" * 70)
@@ -374,7 +388,7 @@ def main() -> None:
 
     print("Training finished.")
     print(f"Best checkpoint: {checkpoint_path}")
-    print(f"Training log: {TRAIN_LOG_PATH}")
+    print(f"Training log   : {TRAIN_LOG_PATH}")
 
 
 if __name__ == "__main__":

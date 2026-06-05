@@ -1,3 +1,4 @@
+import os
 import torch
 
 # =========================
@@ -14,6 +15,7 @@ MAX_IMAGES_PER_CLASS = 50
 # =========================
 # TRAINING CONFIG
 # =========================
+
 IMAGE_SIZE = 112
 EMBEDDING_SIZE = 512
 
