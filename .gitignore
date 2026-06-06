@@ -13,3 +13,5 @@ env/
 *.sln
 *.swp
 dataset/
+checkpoints/*
+models/
