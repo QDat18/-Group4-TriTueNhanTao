@@ -321,7 +321,7 @@ def main() -> None:
             "learning_rate": current_lr,
             "train_loss": train_loss,
             "train_accuracy": train_acc,
-            "embedding_norm": emb_norm,
+"embedding_norm": emb_norm,
             "gradient_norm": grad_norm,
             "num_batches": num_batches,
             "epoch_time_sec": round(epoch_time, 2),

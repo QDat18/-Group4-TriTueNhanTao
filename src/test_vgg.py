@@ -1,6 +1,6 @@
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from dataset_vggface2 import VGGFace2Dataset
+from datasets.dataset_vggface2 import VGGFace2Dataset
 
 
 transform = transforms.Compose([
