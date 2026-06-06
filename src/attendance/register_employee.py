@@ -8,7 +8,10 @@ from datetime import datetime
 
 from insightface.app import FaceAnalysis
 
+from src.config import DET_SIZE
+
 from src.database.supabase_client import supabase
+from src.attendance.align_face import align_face
 from src.attendance.build_embeddings import (
     EmbeddingBuilder
 )
@@ -87,7 +90,7 @@ def capture_dataset(
 
     app.prepare(
         ctx_id=0,
-        det_size=(640, 640)
+        det_size=DET_SIZE
     )
 
     cap = cv2.VideoCapture(0)
@@ -122,13 +125,10 @@ def capture_dataset(
                 face.bbox.astype(int)
             )
 
-            x1 = max(0, x1)
-            y1 = max(0, y1)
-
-            face_crop = frame[
-                y1:y2,
-                x1:x2
-            ]
+            face_crop = align_face(
+                frame,
+                face.kps
+            )
 
             blur = blur_score(
                 face_crop

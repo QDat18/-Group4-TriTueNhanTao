@@ -8,8 +8,8 @@ import torch
 VGGFACE2_ROOT = "dataset/VGGFace2/train"
 
 USE_SUBSET = True
-MAX_CLASSES = 4000
-MAX_IMAGES_PER_CLASS = 150
+MAX_CLASSES = 7000
+MAX_IMAGES_PER_CLASS = 300
 
 # =========================
 # TRAINING CONFIG - VGGFACE2
@@ -110,3 +110,6 @@ ATTENDANCE_DB_PATH = "attendance.db"
 
 RECOGNITION_THRESHOLD = 0.45
 COOLDOWN_SECONDS = 60
+
+# Face detection size for InsightFace - e.g., (128, 128) for high speed, (640, 640) for standard accuracy
+DET_SIZE = (640, 640)

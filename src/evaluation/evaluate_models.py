@@ -178,11 +178,23 @@ class ModelEvaluator:
         print("=" * 60)
         print()
 
-        start_time = time.time()
+        if not os.path.exists(TEST_ROOT):
+            os.makedirs(TEST_ROOT, exist_ok=True)
+            print(f"  Thư mục test '{TEST_ROOT}' không tồn tại. Đã tạo thư mục trống.")
+            print("  Vui lòng thêm các thư mục con chứa ảnh của từng nhân viên vào để đánh giá.")
+            print("=" * 60)
+            return
 
         identities = sorted(
             os.listdir(TEST_ROOT)
         )
+
+        if not identities:
+            print(f"  Thư mục '{TEST_ROOT}' đang trống.")
+            print("  Vui lòng thêm các thư mục con chứa ảnh (Ví dụ: dataset/test/NV001/...) để chạy đánh giá.")
+            return
+
+        start_time = time.time()
 
         for employee_id in identities:
 

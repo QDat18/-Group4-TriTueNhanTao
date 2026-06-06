@@ -8,6 +8,8 @@ import argparse
 import numpy as np
 from datetime import datetime
 from insightface.app import FaceAnalysis
+from src.config import DET_SIZE
+from src.attendance.align_face import align_face
 
 
 def blur_score(image):
@@ -79,7 +81,7 @@ def main():
     metadata_path = os.path.join(args.save_root, "metadata.csv")
 
     app = FaceAnalysis(name="buffalo_l")
-    app.prepare(ctx_id=args.ctx_id, det_size=(640, 640))
+    app.prepare(ctx_id=args.ctx_id, det_size=DET_SIZE)
 
     cap = cv2.VideoCapture(args.camera)
 
@@ -133,8 +135,7 @@ def main():
             face_height = y2 - y1
 
             if face_width > 0 and face_height > 0:
-                # face_crop = frame[y1:y2, x1:x2]
-                face.kps
+                face_crop = align_face(frame, face.kps)
                 current_blur = blur_score(face_crop)
                 current_brightness = brightness_score(face_crop)
 
