@@ -95,3 +95,18 @@ RMFRD_CHECKPOINT_DIR = "checkpoints"
 RMFRD_CHECKPOINT_NAME = "arcface_rmfrd_finetuned.pth"
 
 RMFRD_LOG_PATH = os.path.join(LOG_DIR, "train_rmfrd_log.csv")
+
+# =========================
+# ATTENDANCE CONFIG
+# =========================
+
+INHOUSE_ROOT = "dataset/in-house"
+
+FINAL_CHECKPOINT_PATH = "checkpoints/arcface_vggface2_warmup.pth"
+
+EMPLOYEE_EMBEDDINGS_PATH = "models/embeddings/employee_embeddings.pkl"
+
+ATTENDANCE_DB_PATH = "attendance.db"
+
+RECOGNITION_THRESHOLD = 0.45
+COOLDOWN_SECONDS = 60

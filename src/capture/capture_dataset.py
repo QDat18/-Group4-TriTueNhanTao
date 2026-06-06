@@ -133,8 +133,8 @@ def main():
             face_height = y2 - y1
 
             if face_width > 0 and face_height > 0:
-                face_crop = frame[y1:y2, x1:x2]
-
+                # face_crop = frame[y1:y2, x1:x2]
+                face.kps
                 current_blur = blur_score(face_crop)
                 current_brightness = brightness_score(face_crop)
 
