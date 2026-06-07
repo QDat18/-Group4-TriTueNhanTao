@@ -1,3 +1,4 @@
+//Sidebar
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Camera, Clock, FileText,
