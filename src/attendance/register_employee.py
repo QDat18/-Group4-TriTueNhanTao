@@ -93,7 +93,7 @@ def capture_dataset(
         det_size=DET_SIZE
     )
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
     count = 0
     last_capture = 0

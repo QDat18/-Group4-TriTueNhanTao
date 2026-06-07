@@ -28,7 +28,7 @@ export default function Dashboard() {
   return (
     <div className="animate-in">
       <div className="page-header">
-        <h1>Dashboard</h1>
+        <h1>Bảng điều khiển</h1>
         <p>Tổng quan hệ thống chấm công khuôn mặt</p>
       </div>
 
@@ -54,14 +54,14 @@ export default function Dashboard() {
               <AreaChart data={chart}>
                 <defs>
                   <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    <stop offset="5%" stopColor="var(--accent-primary)" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="var(--accent-primary)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" tick={{ fill: '#6868a0', fontSize: 11 }} tickFormatter={v => v.slice(5)} />
-                <YAxis tick={{ fill: '#6868a0', fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: '#1a1a35', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }} />
-                <Area type="monotone" dataKey="count" stroke="#6366f1" fillOpacity={1} fill="url(#colorCount)" strokeWidth={2} />
+                <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} tickFormatter={v => v.slice(5)} />
+                <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 8, color: 'var(--text-primary)' }} />
+                <Area type="monotone" dataKey="count" stroke="var(--accent-primary)" fillOpacity={1} fill="url(#colorCount)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -97,7 +97,7 @@ export default function Dashboard() {
         {devices.length > 0 ? (
           <div className="grid-3">
             {devices.map(dev => (
-              <div key={dev.device_id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+              <div key={dev.device_id} style={{ padding: '1rem', background: 'rgba(0,0,0,0.01)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
                 <div style={{ fontWeight: 600, marginBottom: '0.3rem' }}>{dev.device_id}</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>{dev.device_name} - {dev.location}</div>
                 <span className={`badge ${dev.is_active ? 'badge-success' : 'badge-danger'}`}>

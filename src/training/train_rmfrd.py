@@ -1,18 +1,17 @@
 import os
 import time
-import math
 from typing import Tuple, List
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torchvision import models
 from tqdm import tqdm
 
 from torch.cuda.amp import autocast, GradScaler
 
 from src import config
+from src.models.face_recognition_model import FaceEmbeddingNet
+from src.models.arcface_head import ArcMarginProduct
 from src.datasets.dataset_rmfrd import RMFRDDataset
 from src.utils.transforms import get_train_transform
 from src.utils.warmup_scheduler import get_warmup_cosine_scheduler
@@ -20,75 +19,6 @@ from src.utils.logger import CSVLogger
 
 
 torch.backends.cudnn.benchmark = True
-
-
-class FaceEmbeddingNet(nn.Module):
-    """
-    Backbone trích xuất đặc trưng khuôn mặt.
-    Dùng cùng kiến trúc với giai đoạn VGGFace2 để load checkpoint.
-    """
-
-    def __init__(self, embedding_size: int = 512) -> None:
-        super().__init__()
-
-        backbone = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
-
-        self.feature_extractor = nn.Sequential(*list(backbone.children())[:-1])
-        self.embedding_layer = nn.Linear(2048, embedding_size)
-        self.bn = nn.BatchNorm1d(embedding_size)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        features = self.feature_extractor(x)
-        features = torch.flatten(features, 1)
-
-        embeddings = self.embedding_layer(features)
-        embeddings = self.bn(embeddings)
-
-        embeddings = F.normalize(embeddings, p=2, dim=1)
-
-        return embeddings
-
-
-class ArcMarginProduct(nn.Module):
-    """
-    ArcFace Head cho RMFRD.
-    Head này được khởi tạo lại vì số class RMFRD khác VGGFace2.
-    """
-
-    def __init__(
-        self,
-        embedding_size: int,
-        num_classes: int,
-        scale: float = 64.0,
-        margin: float = 0.5,
-    ) -> None:
-        super().__init__()
-
-        self.scale = scale
-        self.margin = margin
-
-        self.weight = nn.Parameter(torch.FloatTensor(num_classes, embedding_size))
-        nn.init.xavier_uniform_(self.weight)
-
-        self.cos_m = math.cos(margin)
-        self.sin_m = math.sin(margin)
-
-    def forward(self, embeddings: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-        cosine = F.linear(
-            F.normalize(embeddings),
-            F.normalize(self.weight)
-        )
-
-        sine = torch.sqrt(torch.clamp(1.0 - torch.pow(cosine, 2), min=1e-7))
-        phi = cosine * self.cos_m - sine * self.sin_m
-
-        one_hot = torch.zeros_like(cosine)
-        one_hot.scatter_(1, labels.view(-1, 1), 1.0)
-
-        logits = (one_hot * phi) + ((1.0 - one_hot) * cosine)
-        logits *= self.scale
-
-        return logits
 
 
 def calculate_accuracy(logits: torch.Tensor, labels: torch.Tensor) -> float:
@@ -117,6 +47,7 @@ def save_checkpoint(
 ) -> None:
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
+    # --- Full checkpoint (co the resume training) ---
     torch.save({
         "epoch": epoch,
         "model_state_dict": model.state_dict(),
@@ -125,6 +56,14 @@ def save_checkpoint(
         "scheduler_state_dict": scheduler.state_dict(),
         "loss": loss,
     }, save_path)
+
+    # --- Lite checkpoint (chi backbone, nhe ~3x) ---
+    lite_path = save_path.replace(".pth", "_lite.pth")
+    torch.save({
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "loss": loss,
+    }, lite_path)
 
 
 def load_vggface2_checkpoint(model: nn.Module, checkpoint_path: str, device: str) -> None:
@@ -142,7 +81,8 @@ def load_vggface2_checkpoint(model: nn.Module, checkpoint_path: str, device: str
 
     print(f"Loaded VGGFace2 checkpoint: {checkpoint_path}")
     print(f"Checkpoint epoch: {checkpoint.get('epoch', 'unknown')}")
-    print(f"Checkpoint loss: {checkpoint.get('loss', 'unknown')}")
+    print(f"Checkpoint train_loss: {checkpoint.get('train_loss', checkpoint.get('loss', 'unknown'))}")
+    print(f"Checkpoint val_loss: {checkpoint.get('val_loss', 'N/A')}")
 
 
 def train_one_epoch(
@@ -282,7 +222,8 @@ def main() -> None:
     # 2. Build model
     # =========================
 
-    model = FaceEmbeddingNet(embedding_size=config.EMBEDDING_SIZE).to(device)
+    # pretrained=False vì sẽ load checkpoint từ VGGFace2
+    model = FaceEmbeddingNet(embedding_size=config.EMBEDDING_SIZE, pretrained=False).to(device)
 
     load_vggface2_checkpoint(
         model=model,

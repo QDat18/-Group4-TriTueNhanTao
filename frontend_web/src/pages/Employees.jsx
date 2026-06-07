@@ -45,8 +45,8 @@ export default function Employees() {
   return (
     <div className="animate-in">
       <div className="page-header">
-        <h1>Employee Management</h1>
-        <p>Quản lý thông tin nhân viên</p>
+        <h1>Quản lý nhân viên</h1>
+        <p>Quản lý thông tin và lý lịch nhân viên</p>
       </div>
 
       <div className="toolbar">
@@ -68,6 +68,7 @@ export default function Employees() {
         <table className="data-table">
           <thead>
             <tr>
+              <th style={{ width: 60 }}>Ảnh</th>
               <th>Mã NV</th>
               <th>Họ tên</th>
               <th>Phòng ban</th>
@@ -77,20 +78,36 @@ export default function Employees() {
             </tr>
           </thead>
           <tbody>
-            {employees.map(emp => (
-              <tr key={emp.employee_id}>
-                <td><strong style={{ color: 'var(--accent-info)' }}>{emp.employee_id}</strong></td>
-                <td>{emp.full_name}</td>
-                <td><span className="badge badge-info">{emp.department}</span></td>
-                <td style={{ color: 'var(--text-secondary)' }}>{emp.position}</td>
-                <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{emp.email || '—'}</td>
-                <td style={{ textAlign: 'right' }}>
-                  <button className="btn-icon" onClick={() => handleEdit(emp)} title="Sửa"><Pencil size={14} /></button>
-                  {' '}
-                  <button className="btn-icon" onClick={() => handleDelete(emp.employee_id)} title="Xóa" style={{ color: 'var(--accent-danger)' }}><Trash2 size={14} /></button>
-                </td>
-              </tr>
-            ))}
+            {employees.map(emp => {
+              const portraitUrl = `http://localhost:8000/api/portraits/${emp.employee_id}/${emp.employee_id}_000.jpg`;
+              return (
+                <tr key={emp.employee_id}>
+                  <td>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--border-color)', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <img 
+                        src={portraitUrl} 
+                        alt={emp.full_name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.full_name)}&background=random&color=fff&size=100`;
+                        }}
+                      />
+                    </div>
+                  </td>
+                  <td><strong style={{ color: 'var(--accent-info)' }}>{emp.employee_id}</strong></td>
+                  <td>{emp.full_name}</td>
+                  <td><span className="badge badge-info">{emp.department}</span></td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{emp.position}</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{emp.email || '—'}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button className="btn-icon" onClick={() => handleEdit(emp)} title="Sửa"><Pencil size={14} /></button>
+                    {' '}
+                    <button className="btn-icon" onClick={() => handleDelete(emp.employee_id)} title="Xóa" style={{ color: 'var(--accent-danger)' }}><Trash2 size={14} /></button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         {employees.length === 0 && (
@@ -103,10 +120,31 @@ export default function Employees() {
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div className="modal-title">{editing ? 'Sửa Nhân Viên' : 'Thêm Nhân Viên Mới'}</div>
               <button className="btn-icon" onClick={() => setShowModal(false)}><X size={16} /></button>
             </div>
+            
+            {/* Employee Portrait Preview inside Modal */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0.5rem 0 1.5rem 0' }}>
+              <div style={{ width: 90, height: 90, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--accent-primary)', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-md)' }}>
+                <img 
+                  src={`http://localhost:8000/api/portraits/${form.employee_id}/${form.employee_id}_000.jpg`} 
+                  alt="Portrait"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(form.full_name || 'User')}&background=e2e8f0&color=475569&size=200`;
+                  }}
+                />
+              </div>
+              {form.employee_id && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                  Ảnh chân dung: {form.employee_id}
+                </span>
+              )}
+            </div>
+
             <div className="input-group">
               <label>Mã NV *</label>
               <input className="input" value={form.employee_id} onChange={e => setForm({ ...form, employee_id: e.target.value })} disabled={!!editing} placeholder="NV001" />

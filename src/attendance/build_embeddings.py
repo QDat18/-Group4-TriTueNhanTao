@@ -122,19 +122,15 @@ class EmbeddingBuilder:
         )
 
         payload = {
-
-            "employee_id":
-                employee_id,
-
-            "full_name":
-                employee_id,
-
-            "embedding_vector":
-                embedding_list,
-
-            "image_count":
-                image_count
+            "employee_id": employee_id,
+            "embedding_vector": embedding_list,
+            "image_count": image_count
         }
+
+        try:
+            supabase.table("face_embeddings").delete().eq("employee_id", employee_id).execute()
+        except Exception as e:
+            print(f"Warning deleting old embedding: {e}")
 
         (
             supabase

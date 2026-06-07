@@ -28,8 +28,8 @@ export default function AttendanceLogs() {
   return (
     <div className="animate-in">
       <div className="page-header">
-        <h1>Attendance Logs</h1>
-        <p>Nhật ký chấm công</p>
+        <h1>Nhật ký chấm công</h1>
+        <p>Theo dõi lịch sử và thời gian chấm công chi tiết</p>
       </div>
 
       <div className="toolbar">

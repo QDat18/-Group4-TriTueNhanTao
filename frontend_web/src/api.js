@@ -41,6 +41,8 @@ export const getAttendanceLogs = (params = {}) => {
 // ── Embeddings ──
 export const listEmbeddings = () => request('/embeddings');
 export const deleteEmbedding = (id) => request(`/embeddings/${id}`, { method: 'DELETE' });
+export const rebuildEmbeddings = () => request('/embeddings/rebuild', { method: 'POST' });
+export const reloadEmbeddings = () => request('/embeddings/reload', { method: 'POST' });
 
 // ── Devices ──
 export const listDevices = () => request('/devices');
@@ -51,3 +53,12 @@ export const deleteDevice = (id) => request(`/devices/${id}`, { method: 'DELETE'
 // ── Reports ──
 export const getReportSummary = (period = 'month') => request(`/reports/summary?period=${period}`);
 export const getReportByDepartment = () => request('/reports/by-department');
+
+// ── Face Registration Process Control ──
+export const startRegistration = (data) => request('/register/start', { method: 'POST', body: JSON.stringify(data) });
+export const getRegistrationProgress = (employee_id) => request(`/register/progress?employee_id=${employee_id}`);
+export const stopRegistration = () => request('/register/stop', { method: 'POST' });
+
+// ── Settings ──
+export const getSettings = () => request('/settings');
+export const updateSettings = (data) => request('/settings', { method: 'PUT', body: JSON.stringify(data) });

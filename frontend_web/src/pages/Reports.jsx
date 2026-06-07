@@ -44,11 +44,11 @@ export default function Reports() {
           {summary?.daily_data?.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={summary.daily_data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" tick={{ fill: '#6868a0', fontSize: 11 }} tickFormatter={v => v.slice(5)} />
-                <YAxis tick={{ fill: '#6868a0', fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: '#1a1a35', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }} />
-                <Bar dataKey="present" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="date" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} tickFormatter={v => v.slice(5)} />
+                <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 8, color: 'var(--text-primary)' }} />
+                <Bar dataKey="present" fill="var(--accent-primary)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : <div className="empty-state"><p>Chưa có dữ liệu</p></div>}
@@ -60,12 +60,12 @@ export default function Reports() {
           {deptData.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={deptData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis type="number" tick={{ fill: '#6868a0', fontSize: 11 }} />
-                <YAxis dataKey="department" type="category" tick={{ fill: '#6868a0', fontSize: 11 }} width={80} />
-                <Tooltip contentStyle={{ background: '#1a1a35', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }} />
-                <Bar dataKey="present" fill="#34d399" radius={[0, 4, 4, 0]} name="Đi làm" />
-                <Bar dataKey="absent" fill="#f87171" radius={[0, 4, 4, 0]} name="Vắng" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis type="number" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                <YAxis dataKey="department" type="category" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} width={80} />
+                <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 8, color: 'var(--text-primary)' }} />
+                <Bar dataKey="present" fill="var(--accent-success)" radius={[0, 4, 4, 0]} name="Đi làm" />
+                <Bar dataKey="absent" fill="var(--accent-danger)" radius={[0, 4, 4, 0]} name="Vắng" />
               </BarChart>
             </ResponsiveContainer>
           ) : <div className="empty-state"><p>Chưa có dữ liệu</p></div>}

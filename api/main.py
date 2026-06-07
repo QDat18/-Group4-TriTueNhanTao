@@ -5,11 +5,15 @@ Shared backend for both Streamlit and Vite/React frontends.
 
 import os
 import sys
+import time
 from datetime import datetime, timedelta, timezone
+import json
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from dotenv import load_dotenv
@@ -20,12 +24,17 @@ load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.database.supabase_client import supabase
+from api.auth import verify_api_key
 
 app = FastAPI(
     title="Face Attendance API",
     description="REST API for Face Attendance Management System",
     version="1.0.0",
 )
+
+# Ensure portrait directory exists and mount static files
+os.makedirs("dataset/in-house", exist_ok=True)
+app.mount("/api/portraits", StaticFiles(directory="dataset/in-house"), name="portraits")
 
 app.add_middleware(
     CORSMiddleware,
@@ -261,7 +270,7 @@ def get_employee(employee_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/employees")
+@app.post("/api/employees", dependencies=[Depends(verify_api_key)])
 def create_employee(employee: EmployeeCreate):
     """Create a new employee."""
     try:
@@ -272,7 +281,7 @@ def create_employee(employee: EmployeeCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.put("/api/employees/{employee_id}")
+@app.put("/api/employees/{employee_id}", dependencies=[Depends(verify_api_key)])
 def update_employee(employee_id: str, update: EmployeeUpdate):
     """Update an employee."""
     try:
@@ -288,12 +297,34 @@ def update_employee(employee_id: str, update: EmployeeUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/api/employees/{employee_id}")
+@app.delete("/api/employees/{employee_id}", dependencies=[Depends(verify_api_key)])
 def delete_employee(employee_id: str):
-    """Soft-delete an employee (set is_active=False)."""
+    """Soft-delete an employee: set is_active=False, clean up biometric embeddings and local photos."""
     try:
+        # 1. Soft-delete employee record (keeps details for historical attendance logs FK)
         supabase.table("employees").update({"is_active": False}).eq("employee_id", employee_id).execute()
-        return {"message": "Employee deactivated"}
+        
+        # 2. Hard-delete their biometric face embeddings (security and storage cleanup)
+        supabase.table("face_embeddings").delete().eq("employee_id", employee_id).execute()
+        
+        # 3. Clean up physical dataset portraits folder
+        portrait_dir = os.path.join("dataset", "in-house", employee_id)
+        if os.path.exists(portrait_dir):
+            import shutil
+            try:
+                shutil.rmtree(portrait_dir)
+            except Exception as se:
+                print(f"Warning: Could not remove local files for {employee_id}: {se}")
+
+        # 4. Trigger memory reload in active realtime camera loop
+        global realtime_system
+        if realtime_system is not None:
+            try:
+                realtime_system.attendance_service.load_embeddings()
+            except Exception as re:
+                print(f"Warning: Could not reload embeddings in memory: {re}")
+
+        return {"message": "Employee deactivated, biometric data and local portraits cleaned successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -352,17 +383,34 @@ def get_attendance_logs(
 
 @app.get("/api/embeddings")
 def list_embeddings():
-    """List all face embeddings."""
+    """List all face embeddings, deduplicated by employee_id (keeping the latest one)."""
     try:
         resp = supabase.table("face_embeddings").select(
-            "employee_id, full_name, image_count, updated_at"
-        ).execute()
-        return {"data": resp.data}
+            "employee_id, image_count, created_at, employees(full_name)"
+        ).order("created_at", descending=True).execute()
+        
+        seen_ids = set()
+        formatted = []
+        for row in resp.data:
+            emp_id = row["employee_id"]
+            if emp_id in seen_ids:
+                continue
+            seen_ids.add(emp_id)
+            
+            emp = row.get("employees") or {}
+            full_name = emp.get("full_name", "Unknown") if isinstance(emp, dict) else "Unknown"
+            formatted.append({
+                "employee_id": emp_id,
+                "full_name": full_name,
+                "image_count": row["image_count"],
+                "updated_at": row.get("created_at")
+            })
+        return {"data": formatted}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/api/embeddings/{employee_id}")
+@app.delete("/api/embeddings/{employee_id}", dependencies=[Depends(verify_api_key)])
 def delete_embedding(employee_id: str):
     """Delete embedding for an employee."""
     try:
@@ -386,7 +434,7 @@ def list_devices():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/devices")
+@app.post("/api/devices", dependencies=[Depends(verify_api_key)])
 def create_device(device: DeviceCreate):
     """Create or update a device."""
     try:
@@ -413,7 +461,7 @@ def toggle_device(device_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/api/devices/{device_id}")
+@app.delete("/api/devices/{device_id}", dependencies=[Depends(verify_api_key)])
 def delete_device(device_id: str):
     """Delete a device."""
     try:
@@ -429,7 +477,7 @@ def delete_device(device_id: str):
 
 @app.get("/api/reports/summary")
 def get_report_summary(
-    period: str = Query(default="month", regex="^(day|week|month)$"),
+    period: str = Query(default="month", pattern="^(day|week|month)$"),
 ):
     """Get attendance report summary."""
     try:
@@ -540,12 +588,262 @@ def get_report_by_department():
 
 
 # ════════════════════════════════════════
+# FACE REGISTRATION PROCESS CONTROL
+# ════════════════════════════════════════
+
+import subprocess
+
+active_process = None
+
+class RegisterStartRequest(BaseModel):
+    employee_id: str
+    full_name: str
+    department: str = "IT"
+    position: str = "Employee"
+
+@app.post("/api/register/start")
+def start_registration(req: RegisterStartRequest):
+    global active_process
+    try:
+        if active_process and active_process.poll() is None:
+            active_process.terminate()
+            active_process.wait()
+            
+        payload = {
+            "employee_id": req.employee_id,
+            "full_name": req.full_name,
+            "department": req.department,
+            "position": req.position
+        }
+        supabase.table("employees").upsert(payload).execute()
+        
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        cmd = [
+            sys.executable,
+            "-m",
+            "src.attendance.register_employee",
+            "--employee_id", req.employee_id,
+            "--full_name", req.full_name,
+            "--department", req.department,
+            "--position", req.position,
+            "--max_images", "100"
+        ]
+        
+        active_process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            cwd=project_root,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
+        )
+        return {"status": "started"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/register/progress")
+def get_registration_progress(employee_id: str):
+    global active_process, realtime_system
+    try:
+        path = os.path.join("dataset", "in-house", employee_id)
+        count = 0
+        if os.path.exists(path):
+            count = len([f for f in os.listdir(path) if f.endswith(".jpg")])
+            
+        running = False
+        if active_process:
+            if active_process.poll() is None:
+                running = True
+            else:
+                active_process = None
+                # Auto reload embeddings in running live app
+                if realtime_system is not None:
+                    try:
+                        realtime_system.attendance_service.load_embeddings()
+                        print("Automatically reloaded embeddings after successful face registration.")
+                    except Exception as re:
+                        print(f"Error reloading embeddings: {re}")
+            
+        return {
+            "count": count,
+            "max_images": 100,
+            "is_running": running
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/register/stop")
+def stop_registration():
+    global active_process
+    try:
+        if active_process and active_process.poll() is None:
+            active_process.terminate()
+            active_process.wait()
+            active_process = None
+        return {"status": "stopped"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/embeddings/rebuild", dependencies=[Depends(verify_api_key)])
+def rebuild_embeddings():
+    """Trigger rebuild of embeddings and reload them into memory."""
+    try:
+        from src.attendance.build_embeddings import EmbeddingBuilder
+        builder = EmbeddingBuilder()
+        builder.run()
+        
+        # Reload embeddings in-memory
+        global realtime_system
+        if realtime_system is not None:
+            realtime_system.attendance_service.load_embeddings()
+            
+        return {"status": "success", "message": "Rebuilt and reloaded embeddings successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/embeddings/reload")
+def reload_embeddings():
+    """Reload embeddings from database to memory."""
+    try:
+        global realtime_system
+        if realtime_system is not None:
+            realtime_system.attendance_service.load_embeddings()
+        return {"status": "success", "message": "Reloaded embeddings successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ════════════════════════════════════════
+# SETTINGS CONFIGURATION
+# ════════════════════════════════════════
+
+class SettingsSchema(BaseModel):
+    work_start_time: str
+    allow_late_minutes: int
+    cooldown_seconds: int
+    recognition_threshold: float
+    camera_source_type: str
+    camera_webcam_index: int
+    camera_ip_url: str
+
+@app.get("/api/settings", response_model=SettingsSchema)
+def get_settings():
+    try:
+        from src import config
+        return {
+            "work_start_time": config.WORK_START_TIME,
+            "allow_late_minutes": config.ALLOW_LATE_MINUTES,
+            "cooldown_seconds": config.COOLDOWN_SECONDS,
+            "recognition_threshold": config.RECOGNITION_THRESHOLD,
+            "camera_source_type": config.CAMERA_SOURCE_TYPE,
+            "camera_webcam_index": config.CAMERA_WEBCAM_INDEX,
+            "camera_ip_url": config.CAMERA_IP_URL
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/settings", dependencies=[Depends(verify_api_key)])
+def update_settings(req: SettingsSchema):
+    try:
+        config_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        config_path = os.path.join(config_dir, "config.json")
+        payload = {
+            "work_start_time": req.work_start_time,
+            "allow_late_minutes": req.allow_late_minutes,
+            "cooldown_seconds": req.cooldown_seconds,
+            "recognition_threshold": req.recognition_threshold,
+            "camera_source_type": req.camera_source_type,
+            "camera_webcam_index": req.camera_webcam_index,
+            "camera_ip_url": req.camera_ip_url
+        }
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=4)
+            
+        # Update in-memory variables to avoid server restart
+        from src import config
+        config.WORK_START_TIME = req.work_start_time
+        config.ALLOW_LATE_MINUTES = req.allow_late_minutes
+        config.COOLDOWN_SECONDS = req.cooldown_seconds
+        config.RECOGNITION_THRESHOLD = req.recognition_threshold
+        config.CAMERA_SOURCE_TYPE = req.camera_source_type
+        config.CAMERA_WEBCAM_INDEX = req.camera_webcam_index
+        config.CAMERA_IP_URL = req.camera_ip_url
+        
+        return {"message": "Settings updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ════════════════════════════════════════
+# CAMERA STREAM & REAL-TIME RECOGNITION
+# ════════════════════════════════════════
+
+from functools import lru_cache
+
+@lru_cache(maxsize=1)
+def get_realtime_system():
+    """Lazy-init singleton for the realtime recognition system (thread-safe via lru_cache)."""
+    global realtime_system
+    from src.attendance.realtime_recognition import RealtimeRecognition
+    realtime_system = RealtimeRecognition()
+    return realtime_system
+
+# Alias for backward-compat with references like `realtime_system.attendance_service`
+realtime_system = None
+
+
+@app.get("/api/attendance/stream")
+def get_attendance_stream(camera_id: Optional[str] = None):
+    """Stream camera feed with real-time recognition."""
+    try:
+        from src import config
+        system = get_realtime_system()
+        
+        # Determine camera source
+        if camera_id is not None:
+            camera_source = camera_id
+        else:
+            if config.CAMERA_SOURCE_TYPE == "ip_camera" and config.CAMERA_IP_URL:
+                camera_source = config.CAMERA_IP_URL
+            else:
+                camera_source = config.CAMERA_WEBCAM_INDEX
+        
+        def frame_generator():
+            for frame_bytes in system.run_gen(camera_id=camera_source):
+                yield (
+                    b'--frame\r\n'
+                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n'
+                )
+                time.sleep(0.03) # Limit framerate to ~30 FPS
+                
+        return StreamingResponse(
+            frame_generator(),
+            media_type="multipart/x-mixed-replace; boundary=frame"
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ════════════════════════════════════════
 # HEALTH CHECK
 # ════════════════════════════════════════
 
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+@app.on_event("startup")
+def startup_event():
+    """Pre-load RealtimeRecognition system on startup to avoid multiple redundant loads on concurrent initial requests."""
+    print("\n[STARTUP] Pre-loading Realtime Recognition Model on server startup...")
+    try:
+        get_realtime_system()
+        print("[STARTUP] Realtime Recognition Model loaded successfully.\n")
+    except Exception as e:
+        print(f"[STARTUP] ERROR: Failed to pre-load model on startup: {e}\n")
 
 
 if __name__ == "__main__":

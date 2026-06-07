@@ -21,8 +21,8 @@ export default function Cameras() {
   return (
     <div className="animate-in">
       <div className="page-header">
-        <h1>Camera Management</h1>
-        <p>Quản lý camera chấm công</p>
+        <h1>Quản lý Camera</h1>
+        <p>Giám sát trạng thái hoạt động của các thiết bị camera chấm công</p>
       </div>
 
       <div className="toolbar">

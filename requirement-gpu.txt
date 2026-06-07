@@ -1,0 +1,10 @@
+# GPU-specific requirements (install ON TOP of requirement.txt)
+# Usage: pip install -r requirement-gpu.txt
+
+-r requirement.txt
+
+# Replace onnxruntime with GPU version
+onnxruntime-gpu>=1.17.0
+
+# GPU-optimized FAISS (optional, replaces faiss-cpu)
+# faiss-gpu>=1.7.4

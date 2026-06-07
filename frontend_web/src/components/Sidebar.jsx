@@ -6,37 +6,37 @@ import {
 
 const navSections = [
   {
-    title: 'Overview',
+    title: 'Tổng quan',
     links: [
-      { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/', icon: LayoutDashboard, label: 'Bảng điều khiển' },
     ],
   },
   {
-    title: 'People',
+    title: 'Nhân sự',
     links: [
-      { to: '/employees', icon: Users, label: 'Employees' },
-      { to: '/face-registration', icon: Camera, label: 'Face Registration' },
+      { to: '/employees', icon: Users, label: 'Quản lý nhân viên' },
+      { to: '/face-registration', icon: Camera, label: 'Đăng ký khuôn mặt' },
     ],
   },
   {
-    title: 'Attendance',
+    title: 'Chấm công',
     links: [
-      { to: '/realtime', icon: Clock, label: 'Realtime' },
-      { to: '/logs', icon: FileText, label: 'Attendance Logs' },
+      { to: '/realtime', icon: Clock, label: 'Nhận diện trực tiếp' },
+      { to: '/logs', icon: FileText, label: 'Nhật ký chấm công' },
     ],
   },
   {
-    title: 'AI System',
+    title: 'Hệ thống AI',
     links: [
-      { to: '/ai', icon: Brain, label: 'AI & Embeddings' },
+      { to: '/ai', icon: Brain, label: 'Dữ liệu Vector AI' },
     ],
   },
   {
-    title: 'Analytics',
+    title: 'Cấu hình & Báo cáo',
     links: [
-      { to: '/reports', icon: BarChart3, label: 'Reports' },
-      { to: '/cameras', icon: Video, label: 'Cameras' },
-      { to: '/settings', icon: Settings, label: 'Settings' },
+      { to: '/reports', icon: BarChart3, label: 'Báo cáo thống kê' },
+      { to: '/cameras', icon: Video, label: 'Quản lý Camera' },
+      { to: '/settings', icon: Settings, label: 'Cấu hình hệ thống' },
     ],
   },
 ];
@@ -47,15 +47,15 @@ export default function Sidebar() {
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon">🧑‍💼</div>
         <div>
-          <h1>Face Attend</h1>
-          <span>Management System</span>
+          <h1 style={{ color: '#ffffff' }}>HVNH FaceID</h1>
+          <span style={{ color: '#94a3b8' }}>Hệ thống chấm công AI</span>
         </div>
       </div>
 
       <nav className="sidebar-nav">
         {navSections.map((section) => (
           <div className="nav-section" key={section.title}>
-            <div className="nav-section-title">{section.title}</div>
+            <div className="nav-section-title" style={{ color: '#64748b' }}>{section.title}</div>
             {section.links.map((link) => (
               <NavLink
                 key={link.to}
@@ -71,8 +71,8 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', textAlign: 'center' }}>
-        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>© 2026 Group 4 - HVNH</span>
+      <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>© 2026 Nhóm 4 - HVNH</span>
       </div>
     </aside>
   );
