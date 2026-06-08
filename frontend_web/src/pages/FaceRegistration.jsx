@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, Play, Square, Cpu, CheckCircle2, AlertCircle, Sparkles, RefreshCw, UserCheck, User } from 'lucide-react';
-import { startRegistration, getRegistrationProgress, stopRegistration, listEmployees, listEmbeddings } from '../api';
+import { startRegistration, getRegistrationProgress, stopRegistration, listEmployees, listEmbeddings, rebuildEmbeddings } from '../api';
 
 // ── Step indicator ──────────────────────────────────────────────
 function StepBadge({ step, current }) {
@@ -209,9 +209,22 @@ export default function FaceRegistration() {
     startCamera();
   };
 
-  const handleBuildEmbedding = () => {
+  const handleBuildEmbedding = async () => {
     setStatus('embedding');
-    setTimeout(() => { setStatus('success'); loadEmployeeData(); }, 3000);
+    setErrorMessage('');
+    try {
+      const res = await rebuildEmbeddings();
+      if (res && res.error) {
+        setErrorMessage(`Lỗi trích xuất: ${res.error}`);
+        setStatus('error');
+      } else {
+        setStatus('success');
+        loadEmployeeData();
+      }
+    } catch (err) {
+      setErrorMessage(`Lỗi kết nối: ${err.message}`);
+      setStatus('error');
+    }
   };
 
   // ── Portrait capture (UI only — just marks step done) ─────────
