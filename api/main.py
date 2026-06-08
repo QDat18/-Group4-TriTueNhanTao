@@ -4,6 +4,12 @@ Shared backend for both Streamlit and Vite/React frontends.
 """
 
 import os
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["MKL_NUM_THREADS"] = "2"
+os.environ["OPENBLAS_NUM_THREADS"] = "2"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "2"
+os.environ["NUMEXPR_NUM_THREADS"] = "2"
+
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -31,6 +37,20 @@ app = FastAPI(
     description="REST API for Face Attendance Management System",
     version="1.0.0",
 )
+
+# Simple in-memory query cache to reduce load on Supabase during aggressive frontend polling
+query_cache = {}
+
+def get_cached_data(cache_key):
+    now = time.time()
+    if cache_key in query_cache:
+        val, expiry = query_cache[cache_key]
+        if now < expiry:
+            return val
+    return None
+
+def set_cached_data(cache_key, val, ttl_seconds=3.0):
+    query_cache[cache_key] = (val, time.time() + ttl_seconds)
 
 # Ensure portrait directory exists and mount static files
 os.makedirs("dataset/in-house", exist_ok=True)
@@ -341,6 +361,11 @@ def get_attendance_logs(
     limit: int = Query(default=100, le=1000),
 ):
     """Get attendance logs with filters."""
+    cache_key = f"attendance_{date}_{department}_{employee_id}_{limit}"
+    cached = get_cached_data(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         query = supabase.table("attendance_logs").select("*")
 
@@ -362,17 +387,19 @@ def get_attendance_logs(
             dept_ids = set(e["employee_id"] for e in emp_resp.data)
             logs = [l for l in logs if l["employee_id"] in dept_ids]
 
-        # Enrich with employee names
+        # Enrich with employee names (optimized query to fetch only required employees)
         emp_ids = list(set(l["employee_id"] for l in logs))
         if emp_ids:
-            emp_resp = supabase.table("employees").select("employee_id, full_name, department").execute()
+            emp_resp = supabase.table("employees").select("employee_id, full_name, department").in_("employee_id", emp_ids).execute()
             emp_map = {e["employee_id"]: e for e in emp_resp.data}
             for log in logs:
                 emp = emp_map.get(log["employee_id"], {})
                 log["full_name"] = emp.get("full_name", "Unknown")
                 log["department"] = emp.get("department", "Unknown")
 
-        return {"data": logs}
+        res = {"data": logs}
+        set_cached_data(cache_key, res, ttl_seconds=3.0)
+        return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -480,6 +507,11 @@ def get_report_summary(
     period: str = Query(default="month", pattern="^(day|week|month)$"),
 ):
     """Get attendance report summary."""
+    cache_key = f"summary_{period}"
+    cached = get_cached_data(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         now = datetime.now(timezone.utc)
         if period == "day":
@@ -529,7 +561,7 @@ def get_report_summary(
         total_late = len(late_set)
         total_absent = max(0, total_possible - total_present)
 
-        return {
+        res = {
             "period": period,
             "working_days": working_days,
             "total_employees": total_employees,
@@ -541,6 +573,8 @@ def get_report_summary(
                 for date, emps in sorted(daily_present.items())
             ],
         }
+        set_cached_data(cache_key, res, ttl_seconds=3.0)
+        return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -864,7 +898,6 @@ def get_attendance_stream(camera_id: Optional[str] = None):
                     b'--frame\r\n'
                     b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n'
                 )
-                time.sleep(0.03) # Limit framerate to ~30 FPS
                 
         return StreamingResponse(
             frame_generator(),
