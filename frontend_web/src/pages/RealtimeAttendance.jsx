@@ -259,80 +259,89 @@ export default function RealtimeAttendance() {
     ? (STATUS_CONFIG[currentFace.status]?.color || '#94a3b8')
     : '#334155';
 
-  // Current time display
   const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = now.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
-  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="animate-in" style={{ maxWidth: 1280, margin: '0 auto', paddingBottom: '3rem' }}>
 
       {/* ── Header ── */}
       <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem'
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: '1.5rem', borderBottom: '1px solid var(--br)', paddingBottom: '1.25rem',
+        flexWrap: 'wrap', gap: '1rem'
       }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', margin: 0 }}>
-            Chấm công thời gian thực
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem' }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: isStreaming ? '#10b981' : '#64748b',
+              boxShadow: isStreaming ? '0 0 10px #10b981' : 'none',
+              animation: isStreaming ? 'pulse 1.5s infinite' : 'none'
+            }} />
+            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isStreaming ? '#10b981' : '#64748b', letterSpacing: '0.1em' }}>
+              {isStreaming ? 'HỆ THỐNG ĐANG QUÉT' : 'HỆ THỐNG NGOẠI TUYẾN'}
+            </span>
+          </div>
+          <h1 style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--tx-1)', letterSpacing: '-0.02em', margin: 0 }}>
+            Biometric Attendance Center
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.2rem' }}>
-            Nhận diện khuôn mặt · Ghi nhận vào / ra · Chống gian lận (Liveness)
+          <p style={{ color: 'var(--tx-3)', fontSize: '0.85rem', marginTop: '0.15rem' }}>
+            Nhận dạng khuôn mặt 3D · Anti-Spoofing (Liveness) · Đồng bộ Supabase
           </p>
         </div>
 
-        {/* Policy + clock */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.04em' }}>
-            {timeStr}
-          </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{dateStr}</div>
+        {/* Action + Clock Panel */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* Policy indicator */}
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '0.45rem',
-            background: '#f8fafc', border: '1px solid #e2e8f0',
-            padding: '0.4rem 0.85rem', borderRadius: '8px',
-            fontSize: '0.78rem', color: '#334155', fontWeight: 600
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+            background: 'var(--bg-subtle)', border: '1px solid var(--br)',
+            padding: '0.5rem 0.85rem', borderRadius: '10px',
+            fontSize: '0.78rem', color: 'var(--tx-2)', fontWeight: 600
           }}>
-            <ShieldCheck size={13} color="var(--accent-primary)" />
-            Vào: <strong>{policy.work_start_time}</strong>
-            &nbsp;·&nbsp;
-            Ra: <strong>{policy.work_end_time}</strong>
-            &nbsp;·&nbsp;
-            Trễ tối đa: <strong>{policy.allow_late_minutes} phút</strong>
-            &nbsp;·&nbsp;
-            Về sớm tối đa: <strong>{policy.allow_early_minutes} phút</strong>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--ac)', fontWeight: 700, marginBottom: '0.15rem' }}>
+              <ShieldCheck size={13} />
+              Cấu hình Ca làm việc
+            </div>
+            <div>
+              Ca sáng: <strong>{policy.work_start_time}</strong> (+{policy.allow_late_minutes}m) | Ca chiều: <strong>{policy.work_end_time}</strong>
+            </div>
+          </div>
+
+          {/* Clock widget */}
+          <div style={{
+            background: '#1e293b', color: '#f8fafc',
+            padding: '0.45rem 1rem', borderRadius: '10px',
+            border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center'
+          }}>
+            <div style={{ fontFamily: 'monospace', fontSize: '1.35rem', fontWeight: 800, letterSpacing: '0.05em', lineHeight: 1.1 }}>
+              {timeStr}
+            </div>
+            <div style={{ fontSize: '0.62rem', color: '#94a3b8', marginTop: '0.1rem', textTransform: 'uppercase', fontWeight: 700 }}>
+              {dateStr.split(',')[0] || dateStr}
+            </div>
           </div>
         </div>
       </div>
-      <button
-        className={`btn ${isStreaming ? 'btn-danger' : 'btn-primary'}`}
-        onClick={() => {
-          setStreamError(false);
-          setCurrentFace(null);
-          setCurrentFaceTs(null);
-          setIsStreaming(prev => !prev);
-        }}
-      >
-        {isStreaming ? <Square size={16} /> : <Play size={16} />}
-        {isStreaming ? 'Dừng nhận diện' : 'Bắt đầu nhận diện'}
-      </button>
+
       {/* ── Stats row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
         {[
-          { label: 'Đã vào', value: stats.present, sub: `/ ${stats.total} NV`, color: '#10b981', Icon: UserCheck },
-          { label: 'Vào muộn', value: stats.late, sub: 'nhân viên', color: '#f59e0b', Icon: Clock },
-          { label: 'Về sớm', value: stats.earlyLeave, sub: 'nhân viên', color: '#f97316', Icon: TrendingDown },
-          { label: 'Vắng mặt', value: stats.absent, sub: 'chưa check-in', color: '#ef4444', Icon: UserX },
-          { label: 'Chuyên cần', value: `${stats.rate}%`, sub: 'hôm nay', color: '#3b82f6', Icon: Percent },
-        ].map(({ label, value, sub, color, Icon }) => (
-          <div key={label} className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', padding: '1.1rem' }}>
-            <div style={{ width: 42, height: 42, borderRadius: '10px', background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          { label: 'Đã vào', value: stats.present, sub: `/ ${stats.total} nhân viên`, color: '#10b981', Icon: UserCheck, bgGlow: 'rgba(16, 185, 129, 0.08)' },
+          { label: 'Vào muộn', value: stats.late, sub: 'lượt đi muộn', color: '#f59e0b', Icon: Clock, bgGlow: 'rgba(245, 158, 11, 0.08)' },
+          { label: 'Về sớm', value: stats.earlyLeave, sub: 'lượt về sớm', color: '#f97316', Icon: TrendingDown, bgGlow: 'rgba(249, 115, 22, 0.08)' },
+          { label: 'Vắng mặt', value: stats.absent, sub: 'chưa check-in', color: '#ef4444', Icon: UserX, bgGlow: 'rgba(239, 68, 68, 0.08)' },
+          { label: 'Chuyên cần', value: `${stats.rate}%`, sub: 'tỷ lệ hôm nay', color: '#3b82f6', Icon: Percent, bgGlow: 'rgba(59, 130, 246, 0.08)' },
+        ].map(({ label, value, sub, color, Icon, bgGlow }) => (
+          <div key={label} className="stat-glass-card" style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+            <div className="stat-glass-icon" style={{ background: bgGlow }}>
               <Icon size={20} color={color} />
             </div>
             <div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
-              <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-                {value} <span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-muted)' }}>{sub}</span>
+              <div style={{ fontSize: '0.68rem', color: 'var(--tx-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--tx-1)', lineHeight: 1.25, marginTop: '0.1rem' }}>
+                {value} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--tx-3)' }}>{sub}</span>
               </div>
             </div>
           </div>
@@ -342,219 +351,285 @@ export default function RealtimeAttendance() {
       {/* ── Main 2-col ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem', alignItems: 'start' }}>
 
-        {/* Left: Camera */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* Left: Camera Viewport & Stream Control */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              📹 Camera nhận diện
+            <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--tx-2)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#3b82f6' }} />
+              Realtime Video Capture
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <select
                 value={selectedCameraId}
                 onChange={e => { setSelectedCameraId(e.target.value); setStreamError(false); }}
                 style={{
-                  fontSize: '0.75rem', padding: '0.22rem 0.5rem',
-                  borderRadius: '6px', border: '1px solid var(--border-color)',
-                  background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600
+                  fontSize: '0.75rem', padding: '0.25rem 0.6rem',
+                  borderRadius: '6px', border: '1px solid var(--br)',
+                  background: 'var(--bg-surface)', color: 'var(--tx-1)', fontWeight: 600, outline: 'none'
                 }}
               >
-                <option value="system">Hệ thống (mặc định)</option>
-                <option value="0">Webcam 0 (chính)</option>
-                <option value="1">Webcam 1 (phụ)</option>
+                <option value="system">Hệ thống (Mặc định)</option>
+                <option value="0">Webcam 0 (Chính)</option>
+                <option value="1">Webcam 1 (Phụ)</option>
                 <option value="2">Webcam 2</option>
               </select>
               <span style={{
-                display: 'flex', alignItems: 'center', gap: '0.3rem',
+                display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
                 background: isStreaming ? '#ecfdf5' : '#f1f5f9',
                 color: isStreaming ? '#059669' : '#64748b',
-                padding: '0.2rem 0.6rem', borderRadius: '50px', fontSize: '0.7rem', fontWeight: 700
+                padding: '0.25rem 0.65rem', borderRadius: '50px', fontSize: '0.7rem', fontWeight: 800
               }}>
-                {isStreaming ? <Wifi size={11} /> : <WifiOff size={11} />}
-                {isStreaming ? 'LIVE' : 'OFFLINE'}
+                {isStreaming ? <Wifi size={11} className="pulse" /> : <WifiOff size={11} />}
+                {isStreaming ? 'STREAMING' : 'OFFLINE'}
               </span>
             </div>
           </div>
 
           {/* Camera viewport */}
           <div style={{
-            background: '#090d16', borderRadius: '10px', minHeight: 400,
+            background: '#070a13', borderRadius: '12px', minHeight: 420,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             overflow: 'hidden', position: 'relative',
-            border: '1px solid #1e293b', boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.5)'
+            border: '1.5px solid #1e293b', boxShadow: '0 10px 30px rgba(0, 0, 0, 0.25), inset 0 0 40px rgba(0, 0, 0, 0.8)'
           }}>
             {isStreaming && streamUrl ? (
               <>
-                <img src={streamUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="Live Stream" onError={() => { setIsStreaming(false); setStreamError(true); }} />
+                <img
+                  src={streamUrl}
+                  style={{ width: '100%', height: '100%', minHeight: 420, objectFit: 'contain', zIndex: 1 }}
+                  alt="Live Stream Feed"
+                  onError={() => { setIsStreaming(false); setStreamError(true); }}
+                />
 
-                {/* HUD overlay */}
-                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                  {/* Scanner ring */}
-                  <div className="camera-overlay">
-                    <div className={`face-circle-guide ${isStreaming ? 'active' : ''}`}>
-                      <div className="scanner-laser" />
-                    </div>
-                  </div>
-                  {/* Bottom-left info */}
-                  <div style={{
-                    position: 'absolute', bottom: '0.85rem', left: '0.85rem',
-                    fontFamily: 'monospace', fontSize: '0.68rem',
-                    background: 'rgba(9,13,22,0.88)', padding: '0.5rem 0.75rem',
-                    borderRadius: '6px', border: '1px solid #334155', color: '#94a3b8'
-                  }}>
-                    <div style={{ color: '#22c55e', fontWeight: 700, marginBottom: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'ping 1.2s infinite' }} />
-                      CAM ONLINE · ArcFace ResNet50
-                    </div>
-                    <div>Anti-Spoofing: ACTIVE</div>
-                    <div>Threshold: 85% match · Liveness: 60%</div>
-                  </div>
+                {/* HIGH-TECH HUD OVERLAYS */}
+                <div className="hud-corner tl" />
+                <div className="hud-corner tr" />
+                <div className="hud-corner bl" />
+                <div className="hud-corner br" />
 
-                  {/* Last recognition flash */}
-                  {isRecent && latestLog && (
-                    <div style={{
-                      position: 'absolute', top: '0.75rem', right: '0.75rem',
-                      background: 'rgba(9,13,22,0.88)', border: `1px solid ${STATUS_CONFIG[latestLog.status]?.border || '#334155'}`,
-                      padding: '0.4rem 0.7rem', borderRadius: '8px', fontSize: '0.72rem',
-                      fontFamily: 'monospace', color: STATUS_CONFIG[latestLog.status]?.color || '#fff'
-                    }}>
-                      ✓ {latestLog.full_name} — {STATUS_CONFIG[latestLog.status]?.text || latestLog.status}
-                    </div>
-                  )}
+                {/* Laser animation */}
+                <div className="scan-laser-line" />
+
+                {/* Info Hud Box (Bottom Left) */}
+                <div style={{
+                  position: 'absolute', bottom: '1rem', left: '1rem',
+                  fontFamily: 'monospace', fontSize: '0.68rem', zIndex: 10,
+                  background: 'rgba(9,13,22,0.85)', padding: '0.6rem 0.85rem',
+                  borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8',
+                  backdropFilter: 'blur(4px)'
+                }}>
+                  <div style={{ color: '#22c55e', fontWeight: 800, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                    ACQUISITION ACTIVE
+                  </div>
+                  <div>MODEL: InsightFace ResNet50</div>
+                  <div>DEVICE ID: {selectedCameraId.toUpperCase()}</div>
+                  <div>FPS: ~30.0 | THRESHOLD: 45%</div>
                 </div>
+
+                {/* Info Hud Box (Top Left) */}
+                <div style={{
+                  position: 'absolute', top: '1rem', left: '1rem', zIndex: 10,
+                  background: 'rgba(9,13,22,0.85)', padding: '0.35rem 0.65rem',
+                  borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)',
+                  display: 'flex', alignItems: 'center', gap: '0.35rem', backdropFilter: 'blur(4px)'
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'pulse 1s infinite' }} />
+                  <span style={{ color: '#f8fafc', fontSize: '0.65rem', fontWeight: 800, fontFamily: 'monospace', letterSpacing: '0.05em' }}>LIVE FEED</span>
+                </div>
+
+                {/* Last recognition flash */}
+                {isRecent && latestLog && (
+                  <div style={{
+                    position: 'absolute', top: '1rem', right: '1rem', zIndex: 10,
+                    background: 'rgba(15, 23, 42, 0.9)', border: `1px solid ${STATUS_CONFIG[latestLog.status]?.border || '#334155'}`,
+                    padding: '0.5rem 0.85rem', borderRadius: '8px', fontSize: '0.75rem',
+                    fontFamily: 'monospace', color: STATUS_CONFIG[latestLog.status]?.color || '#fff',
+                    boxShadow: `0 4px 15px ${STATUS_CONFIG[latestLog.status]?.color}33`,
+                    backdropFilter: 'blur(4px)'
+                  }}>
+                    MATCH: <strong>{latestLog.full_name}</strong> ({Math.round((latestLog.similarity || 0.8) * 100)}%)
+                  </div>
+                )}
               </>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', color: '#475569', textAlign: 'center', padding: '2rem' }}>
-                <div style={{ fontSize: '2.5rem', opacity: 0.25 }}>📹</div>
-                <p style={{ margin: 0, fontWeight: 600, color: '#94a3b8' }}>Camera tạm dừng</p>
-                {streamError && <p style={{ color: '#ef4444', fontSize: '0.78rem', fontWeight: 500, margin: 0 }}>Lỗi kết nối camera. Kiểm tra backend / quyền webcam.</p>}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, padding: '3rem', color: '#475569', textAlign: 'center' }}>
+                {/* Radar visualization inside offline screen */}
+                <div className="radar-container" style={{ opacity: 0.3, marginBottom: '1rem', width: 100, height: 100 }}>
+                  <div className="radar-sweep" />
+                  <div className="radar-grid-circle c1" />
+                  <div className="radar-grid-circle c2" />
+                </div>
+                <h3 style={{ margin: 0, fontWeight: 700, color: '#94a3b8', fontSize: '0.95rem' }}>Camera Standby</h3>
+                <p style={{ fontSize: '0.78rem', color: '#475569', marginTop: '0.25rem', maxWidth: '280px' }}>
+                  Hệ thống nhận diện đang tạm dừng. Bấm nút phía dưới để kích hoạt camera.
+                </p>
+                {streamError && (
+                  <div style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 600, marginTop: '0.75rem', background: 'rgba(239, 68, 68, 0.05)', padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+                    Error: Camera offline hoặc bị chiếm bởi tiến trình khác.
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Control button */}
+          {/* Action button below view */}
           <div style={{ marginTop: '0.85rem' }}>
-            {isStreaming ? (
-              <button
-                className="btn btn-danger"
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                onClick={() => setIsStreaming(false)}
-              >
-                <Square size={13} /> Dừng quét
-              </button>
-            ) : (
-              <button
-                className="btn btn-primary"
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                onClick={() => { setStreamError(false); setIsStreaming(true); }}
-              >
-                <Play size={13} /> Bắt đầu quét
-              </button>
-            )}
+            <button
+              className={`btn ${isStreaming ? 'btn-danger' : 'btn-primary'}`}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', height: '42px', borderRadius: '10px' }}
+              onClick={() => {
+                setStreamError(false);
+                if (isStreaming) {
+                  setIsStreaming(false);
+                  setCurrentFace(null);
+                  setCurrentFaceTs(null);
+                } else {
+                  setIsStreaming(true);
+                }
+              }}
+            >
+              {isStreaming ? (
+                <>
+                  <Square size={14} fill="currentColor" /> DỪNG QUÉT CAMERA
+                </>
+              ) : (
+                <>
+                  <Play size={14} fill="currentColor" /> BẮT ĐẦU QUÉT CAMERA
+                </>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Right: Recognition panel */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.65rem', marginBottom: '1rem' }}>
-            👤 Nhận diện gần nhất
+        {/* Right: Biometric Matching Panel */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: 495, padding: '1.25rem' }}>
+          <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--tx-2)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--br)', paddingBottom: '0.65rem', marginBottom: '1rem' }}>
+            👤 Biometric Recognition Panel
           </div>
 
           {currentFace ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', animation: 'fadeIn 0.25s ease' }}>
 
               {/* Portrait ring */}
               <div style={{
-                width: 120, height: 120, borderRadius: '50%', overflow: 'hidden',
+                width: 130, height: 130, borderRadius: '50%', overflow: 'hidden',
                 border: `4px solid ${ringColor}`,
-                boxShadow: `0 0 20px ${ringColor}44`,
-                background: '#f8fafc', flexShrink: 0
+                boxShadow: `0 0 25px ${ringColor}44`,
+                background: 'var(--bg-subtle)', flexShrink: 0,
+                position: 'relative'
               }}>
-                <Portrait empId={faceEmpId} name={currentFace.full_name} size={120} backend={BACKEND} />
+                <Portrait empId={faceEmpId} name={currentFace.full_name} size={130} backend={BACKEND} />
+                <div style={{
+                  position: 'absolute', bottom: 4, right: 4, width: 22, height: 22,
+                  borderRadius: '50%', background: ringColor, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '2px solid #fff', boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+                }}>
+                  <StatusIcon status={currentFace.status} size={10} color="#fff" />
+                </div>
               </div>
 
-              {/* Name */}
+              {/* ID Badge details */}
               <div style={{ textAlign: 'center' }}>
-                <h2 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '0 0 0.15rem', color: 'var(--text-primary)' }}>
-                  {currentFace.full_name || 'Đang nhận diện...'}
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: '0 0 0.2rem', color: 'var(--tx-1)', letterSpacing: '-0.01em' }}>
+                  {currentFace.full_name || 'Đang phân tích...'}
                 </h2>
-                {faceEmpId && (
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                    ID: <strong>{faceEmpId}</strong>
+                {faceEmpId ? (
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--tx-3)', fontWeight: 600 }}>
+                    MÃ SỐ: <span style={{ color: 'var(--ac)' }}>{faceEmpId}</span>
                     {(logs.find(l => l.employee_id === faceEmpId)?.department) &&
-                      <> · Phòng: <strong>{logs.find(l => l.employee_id === faceEmpId).department}</strong></>
+                      <> &nbsp;·&nbsp; PHÒNG: <span style={{ color: 'var(--tx-2)' }}>{logs.find(l => l.employee_id === faceEmpId).department.toUpperCase()}</span></>
                     }
                   </p>
+                ) : (
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--tx-3)' }}>Khách truy cập / Chưa đăng ký</p>
                 )}
               </div>
 
-              {/* Status badge */}
-              <StatusBadge status={currentFace.status} size="lg" />
+              {/* Status Tag */}
+              <div style={{ transform: 'scale(1.05)', margin: '0.2rem 0' }}>
+                <StatusBadge status={currentFace.status} size="lg" />
+              </div>
 
-              {/* Time note */}
+              {/* Dynamic Notification notes */}
               {currentFace.status === 'LATE' && (
-                <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px', padding: '0.5rem 0.85rem', fontSize: '0.78rem', color: '#92400e', fontWeight: 600, textAlign: 'center' }}>
-                  ⏰ Muộn so với giờ quy định ({policy.work_start_time})
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b45309', fontWeight: 600, textAlign: 'center', width: '100%' }}>
+                  ⏰ Đi muộn so với giờ quy định ({policy.work_start_time})
                 </div>
               )}
               {currentFace.status === 'EARLY_LEAVE' && (
-                <div style={{ background: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', padding: '0.5rem 0.85rem', fontSize: '0.78rem', color: '#9a3412', fontWeight: 600, textAlign: 'center' }}>
-                  🏃 Về trước giờ tan làm ({policy.work_end_time})
+                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#c2410c', fontWeight: 600, textAlign: 'center', width: '100%' }}>
+                  🏃 Về trước giờ tan làm theo quy định ({policy.work_end_time})
                 </div>
               )}
               {currentFace.status === 'UNKNOWN' && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.5rem 0.85rem', fontSize: '0.78rem', color: '#991b1b', fontWeight: 600, textAlign: 'center' }}>
-                  ❌ Không tìm thấy trong hệ thống — cần đăng ký
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, textAlign: 'center', width: '100%' }}>
+                  ❌ Gương mặt không khớp dữ liệu nhân viên
                 </div>
               )}
-              {currentFace.status === 'SCANNING' && (
-                <div style={{ background: '#f5f3ff', border: '1px solid #c4b5fd', borderRadius: '8px', padding: '0.5rem 0.85rem', fontSize: '0.78rem', color: '#5b21b6', fontWeight: 600, textAlign: 'center' }}>
-                  🔍 Đang so khớp khuôn mặt...
+              {currentFace.status === 'SPOOFING' && (
+                <div style={{ background: '#fef2f2', border: '1px solid #f87171', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 700, textAlign: 'center', width: '100%' }}>
+                  🚨 CẢNH BÁO: Phát hiện ảnh chụp/video giả mạo!
                 </div>
               )}
 
-              {/* Metrics */}
-              <div style={{ width: '100%', background: '#f8fafc', borderRadius: '10px', padding: '0.9rem', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {/* Stats & Match Values */}
+              <div style={{
+                width: '100%', background: 'var(--bg-subtle)', borderRadius: '10px',
+                padding: '0.85rem', border: '1px solid var(--br)', display: 'flex', flexDirection: 'column', gap: '0.75rem'
+              }}>
                 <ConfidenceBar value={currentFace.similarity} />
                 <LivenessBar value={currentFace.liveness_score} />
 
-                {currentFace.label && (
-                  <div>
-                    <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>NHÃN NHẬN DIỆN</span>
-                    <span style={{ fontFamily: 'monospace', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{currentFace.label}</span>
-                  </div>
-                )}
-
                 {currentFace.check_time && (
-                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.65rem' }}>
-                    <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>THỜI GIAN GHI NHẬN</span>
-                    <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>{formatTime(currentFace.check_time)}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{formatDate(currentFace.check_time)}</span>
+                  <div style={{ borderTop: '1px solid var(--br)', paddingTop: '0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--tx-3)', fontWeight: 700, display: 'block' }}>THỜI GIAN ĐIỂM DANH</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: '0.88rem', fontWeight: 800, color: 'var(--tx-1)' }}>{formatTime(currentFace.check_time)}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--tx-3)', fontWeight: 700, display: 'block' }}>NGÀY GHI NHẬN</span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--tx-2)', fontWeight: 600 }}>{formatDate(currentFace.check_time)}</span>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, color: 'var(--text-muted)', padding: '3rem 1rem', gap: '0.75rem' }}>
-              <div style={{ fontSize: '2.8rem', opacity: 0.2 }}>👤</div>
-              <p style={{ margin: 0, fontWeight: 600, fontSize: '0.85rem' }}>Đang chờ nhận diện...</p>
-              <p style={{ margin: 0, fontSize: '0.75rem', textAlign: 'center', maxWidth: '200px' }}>Vui lòng đứng trực diện camera. Tránh đội mũ, đeo khẩu trang.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, padding: '2rem 1rem' }}>
+              {/* Radar Scanner Animation for Idle state */}
+              <div className="radar-container">
+                <div className="radar-sweep" />
+                <div className="radar-grid-circle c1" />
+                <div className="radar-grid-circle c2" />
+                <div className="radar-grid-circle c3" />
+                <div className="radar-dot" style={{ top: '30%', left: '70%' }} />
+                <div className="radar-dot" style={{ top: '65%', left: '20%', animationDelay: '0.7s' }} />
+              </div>
+              <p style={{ margin: '1rem 0 0.25rem', fontWeight: 700, fontSize: '0.85rem', color: 'var(--tx-2)', letterSpacing: '0.05em' }}>
+                ĐANG QUÉT KHUÔN MẶT...
+              </p>
+              <p style={{ margin: 0, fontSize: '0.75rem', textAlign: 'center', color: 'var(--tx-3)', maxWidth: '240px', lineHeight: 1.4 }}>
+                Vui lòng đứng thẳng, chính diện trước camera để ghi nhận chấm công tự động.
+              </p>
             </div>
           )}
         </div>
       </div>
 
       {/* ── Log table ── */}
-      <div className="card" style={{ marginTop: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.65rem', marginBottom: '1rem' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            📋 Nhật ký chấm công hôm nay
+      <div className="card" style={{ marginTop: '1.5rem', padding: '1.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--br)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--tx-2)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <Users size={14} color="var(--ac)" />
+            Nhật ký điểm danh hôm nay
           </span>
           <button
             className="btn btn-sm btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', borderRadius: '6px' }}
             onClick={loadData}
           >
-            <RefreshCw size={11} /> Làm mới
+            <RefreshCw size={11} /> Làm mới log
           </button>
         </div>
 
@@ -566,10 +641,10 @@ export default function RealtimeAttendance() {
                   <th style={{ width: 44, textAlign: 'center' }}>Ảnh</th>
                   <th>Thời gian</th>
                   <th>Ngày</th>
-                  <th>Mã NV</th>
+                  <th>Mã số</th>
                   <th>Họ tên</th>
                   <th>Phòng ban</th>
-                  <th style={{ textAlign: 'center' }}>Loại</th>
+                  <th style={{ textAlign: 'center' }}>Hình thức</th>
                   <th style={{ textAlign: 'center' }}>Độ khớp</th>
                   <th style={{ textAlign: 'center' }}>Liveness</th>
                   <th style={{ textAlign: 'center' }}>Trạng thái</th>
@@ -582,49 +657,50 @@ export default function RealtimeAttendance() {
                   const liv = log.liveness_score ? Math.round(log.liveness_score * 100) : null;
                   const isCheckOut = ['CHECK_OUT', 'EARLY_LEAVE'].includes(log.status);
                   return (
-                    <tr key={i} style={i === 0 && isRecent ? { background: `${cfg.bg}` } : {}}>
+                    <tr key={i} style={i === 0 && isRecent ? { background: `${cfg.bg}aa` } : {}}>
                       {/* Portrait */}
-                      <td style={{ textAlign: 'center', padding: '0.5rem' }}>
+                      <td style={{ textAlign: 'center', padding: '0.45rem' }}>
                         <div style={{
                           width: 34, height: 34, borderRadius: '50%',
                           overflow: 'hidden', border: `2px solid ${cfg.border}`,
-                          background: '#f1f5f9', margin: '0 auto'
+                          background: 'var(--bg-subtle)', margin: '0 auto',
+                          boxShadow: i === 0 && isRecent ? `0 0 10px ${cfg.border}` : 'none'
                         }}>
                           <Portrait empId={log.employee_id} name={log.full_name} size={34} backend={BACKEND} />
                         </div>
                       </td>
                       {/* Time */}
-                      <td style={{ fontFamily: 'monospace', fontSize: '0.83rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      <td style={{ fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 800, color: 'var(--tx-1)' }}>
                         {formatTime(log.check_time)}
                       </td>
                       {/* Date */}
-                      <td style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                      <td style={{ fontSize: '0.78rem', color: 'var(--tx-3)' }}>
                         {formatDate(log.check_time)}
                       </td>
                       {/* Employee ID */}
                       <td>
-                        <strong style={{ color: 'var(--accent-primary)', fontSize: '0.82rem' }}>{log.employee_id}</strong>
+                        <strong style={{ color: 'var(--ac)', fontSize: '0.82rem', fontFamily: 'monospace' }}>{log.employee_id}</strong>
                       </td>
                       {/* Name */}
-                      <td style={{ fontWeight: 600, fontSize: '0.88rem' }}>{log.full_name || '—'}</td>
+                      <td style={{ fontWeight: 650, fontSize: '0.88rem', color: 'var(--tx-1)' }}>{log.full_name || '—'}</td>
                       {/* Department */}
-                      <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{log.department || '—'}</td>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--tx-2)', fontWeight: 500 }}>{log.department || '—'}</td>
                       {/* Check-in / out */}
                       <td style={{ textAlign: 'center' }}>
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-                          fontSize: '0.7rem', fontWeight: 700,
+                          fontSize: '0.7rem', fontWeight: 800,
                           color: isCheckOut ? '#3b82f6' : '#10b981'
                         }}>
                           {isCheckOut ? <LogOut size={11} /> : <LogIn size={11} />}
-                          {isCheckOut ? 'Ra' : 'Vào'}
+                          {isCheckOut ? 'RA' : 'VÀO'}
                         </span>
                       </td>
                       {/* Similarity */}
                       <td style={{ textAlign: 'center' }}>
                         {sim !== null ? (
                           <span style={{
-                            fontFamily: 'monospace', fontWeight: 700, fontSize: '0.8rem',
+                            fontFamily: 'monospace', fontWeight: 800, fontSize: '0.82rem',
                             color: sim >= 85 ? '#10b981' : sim >= 70 ? '#f59e0b' : '#ef4444'
                           }}>
                             {sim}%
@@ -635,7 +711,7 @@ export default function RealtimeAttendance() {
                       <td style={{ textAlign: 'center' }}>
                         {liv !== null ? (
                           <span style={{
-                            fontFamily: 'monospace', fontWeight: 700, fontSize: '0.8rem',
+                            fontFamily: 'monospace', fontWeight: 800, fontSize: '0.82rem',
                             color: liv >= 60 ? '#10b981' : '#ef4444'
                           }}>
                             {liv}%
@@ -653,9 +729,9 @@ export default function RealtimeAttendance() {
             </table>
           </div>
         ) : (
-          <div className="empty-state" style={{ padding: '2.5rem' }}>
-            <Users size={32} style={{ opacity: 0.25, marginBottom: '0.5rem' }} />
-            <p style={{ margin: 0 }}>Chưa có log chấm công trong hôm nay</p>
+          <div className="empty-state" style={{ padding: '3rem' }}>
+            <Users size={36} style={{ opacity: 0.25, marginBottom: '0.75rem', color: 'var(--tx-3)' }} />
+            <p style={{ margin: 0, fontWeight: 500 }}>Chưa ghi nhận lượt chấm công nào trong hôm nay</p>
           </div>
         )}
       </div>

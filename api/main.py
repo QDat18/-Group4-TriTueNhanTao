@@ -729,6 +729,17 @@ def run_registration_in_background(employee_id, full_name, department, position,
         with registration_lock:
             registration_active = False
             canceled_registrations.discard(employee_id)
+        if camera_stream is not None:
+            print("[REGISTRATION] Stopping and releasing shared camera stream...")
+            camera_stream.stop()
+            try:
+                from src.attendance.realtime_recognition import _shared_camera_streams, _shared_camera_lock
+                with _shared_camera_lock:
+                    for k, v in list(_shared_camera_streams.items()):
+                        if v == camera_stream:
+                            _shared_camera_streams.pop(k, None)
+            except Exception as se:
+                print(f"[REGISTRATION] Warning cleaning up shared stream: {se}")
 
 class RegisterStartRequest(BaseModel):
     employee_id: str

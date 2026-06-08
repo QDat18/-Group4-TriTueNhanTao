@@ -599,7 +599,15 @@ class RealtimeRecognition:
                     stream_info["ref_count"] -= 1
 
                     if stream_info["ref_count"] <= 0:
+                        print(f"[CAMERA] Releasing camera {camera_id} because ref_count reached 0.")
                         stream_info["worker"].stop()
+                        stream_info["stream"].stop()
+                        
+                        global _shared_camera_streams
+                        with _shared_camera_lock:
+                            _shared_camera_streams.pop(camera_id, None)
+                            
+                        self.active_streams.pop(camera_id, None)
 
 
 if __name__ == "__main__":
