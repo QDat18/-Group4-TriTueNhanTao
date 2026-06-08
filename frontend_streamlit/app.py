@@ -3,6 +3,10 @@ Face Attendance Management System - Streamlit Frontend
 Main entry point with sidebar navigation.
 """
 
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import streamlit as st
 
 st.set_page_config(

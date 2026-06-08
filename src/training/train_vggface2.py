@@ -206,6 +206,13 @@ def train_one_epoch(
 
         # Unscale trước khi tính gradient norm để giá trị grad_norm là thật
         scaler.unscale_(optimizer)
+
+        # Clip gradient để tránh gradient explosion (fix inf grad_norm)
+        torch.nn.utils.clip_grad_norm_(
+            list(model.parameters()) + list(arcface_head.parameters()),
+            max_norm=5.0,
+        )
+
         grad_norm = calculate_gradient_norm(model, arcface_head)
 
         scaler.step(optimizer)

@@ -307,7 +307,7 @@ export default function RealtimeAttendance() {
                 
                 {/* HUD Camera Target Indicator overlay */}
                 <div className="camera-overlay">
-                  <div className="face-circle-guide">
+                  <div className={`face-circle-guide ${isStreaming ? 'active' : ''}`}>
                     <div className="scanner-laser" />
                   </div>
                   

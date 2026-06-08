@@ -62,3 +62,6 @@ export const stopRegistration = () => request('/register/stop', { method: 'POST'
 // ── Settings ──
 export const getSettings = () => request('/settings');
 export const updateSettings = (data) => request('/settings', { method: 'PUT', body: JSON.stringify(data) });
+
+// ── Model Info ──
+export const getModelInfo = () => request('/model/info');

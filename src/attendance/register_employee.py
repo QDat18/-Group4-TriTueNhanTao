@@ -93,8 +93,22 @@ def capture_dataset(
         det_size=DET_SIZE
     )
 
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-
+    # Initialize camera with DirectShow, fallback if fails
+    cap = None
+    try:
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    except Exception as e:
+        print(f"Warning: DirectShow init failed: {e}")
+        cap = None
+    if cap is None or not cap.isOpened():
+        # Fallback to default VideoCapture
+        cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Error: Could not open camera for registration. Using placeholder frame.")
+        # Create placeholder frame to keep pipeline alive (black with warning text)
+        placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
+        cv2.putText(placeholder, "CAMERA OFFLINE", (180, 240), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
+        # We'll use this placeholder inside the loop when capture fails
     count = 0
     last_capture = 0
 
@@ -105,11 +119,15 @@ def capture_dataset(
 
     while True:
 
-        ret, frame = cap.read()
+        if cap and cap.isOpened():
+            ret, frame = cap.read()
+        else:
+            # Use placeholder when camera unavailable
+            ret = True
+            frame = placeholder.copy()
 
         if not ret:
             break
-
         display = frame.copy()
 
         faces = app.get(frame)

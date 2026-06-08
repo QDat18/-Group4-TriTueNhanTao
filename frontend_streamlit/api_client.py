@@ -90,6 +90,12 @@ def list_embeddings():
 def delete_embedding(employee_id):
     return _delete(f"/embeddings/{employee_id}")
 
+def rebuild_embeddings():
+    return _post("/embeddings/rebuild")
+
+def reload_embeddings():
+    return _post("/embeddings/reload")
+
 # ── Devices ──
 def list_devices():
     return _get("/devices")

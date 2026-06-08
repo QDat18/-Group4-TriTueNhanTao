@@ -38,11 +38,17 @@ class RealtimeRecognition:
         self.transform = get_val_transform()
 
     def run(self, camera_id=0):
-        # Use DirectShow on Windows for local webcams to prevent MSMF grab frame errors
-        if isinstance(camera_id, int):
-            cap = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW)
-        else:
+        cap = None
+        try:
+            if isinstance(camera_id, int):
+                cap = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW)
+        except Exception as e:
+            print(f"Warning: Failed to open camera via CAP_DSHOW: {e}")
+            cap = None
+            
+        if cap is None or not cap.isOpened():
             cap = cv2.VideoCapture(camera_id)
+            
         if not cap.isOpened():
             print(f"Error: Could not open camera {camera_id}")
             return
@@ -148,12 +154,27 @@ class RealtimeRecognition:
                     camera_id = "http://" + camera_id
 
         # Use DirectShow on Windows for local webcams to prevent MSMF grab frame errors
-        if isinstance(camera_id, int):
-            cap = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW)
-        else:
+        cap = None
+        try:
+            if isinstance(camera_id, int):
+                cap = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW)
+        except Exception as e:
+            print(f"Warning: Failed to open camera via CAP_DSHOW: {e}")
+            cap = None
+            
+        if cap is None or not cap.isOpened():
+            print(f"Attempting standard VideoCapture for camera {camera_id}...")
             cap = cv2.VideoCapture(camera_id)
+            
         if not cap.isOpened():
-            print(f"Error: Could not open camera {camera_id}")
+            print(f"Error: Could not open camera {camera_id}. Yielding placeholder offline frame.")
+            # Yield a placeholder offline image frame to prevent streaming failure
+            placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
+            cv2.putText(placeholder, "CAMERA OFFLINE / IN USE", (130, 240),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
+            ret, jpeg = cv2.imencode('.jpg', placeholder)
+            if ret:
+                yield jpeg.tobytes()
             return
 
         frame_count = 0

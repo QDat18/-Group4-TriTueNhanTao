@@ -17,8 +17,8 @@ export default function AISystem() {
     });
   };
 
-  useEffect(() => { 
-    loadData(); 
+  useEffect(() => {
+    loadData();
   }, []);
 
   const handleDelete = async (id) => {
@@ -62,15 +62,15 @@ export default function AISystem() {
       </div>
 
       {message.text && (
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '0.75rem', 
-          background: message.type === 'success' ? '#ecfdf5' : '#fef2f2', 
-          border: `1px solid ${message.type === 'success' ? '#34d399' : '#f87171'}`, 
-          color: message.type === 'success' ? '#065f46' : '#991b1b', 
-          padding: '0.85rem 1rem', 
-          borderRadius: 'var(--radius-md)', 
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          background: message.type === 'success' ? '#ecfdf5' : '#fef2f2',
+          border: `1px solid ${message.type === 'success' ? '#34d399' : '#f87171'}`,
+          color: message.type === 'success' ? '#065f46' : '#991b1b',
+          padding: '0.85rem 1rem',
+          borderRadius: 'var(--radius-md)',
           marginBottom: '1.25rem',
           fontSize: '0.85rem',
           fontWeight: 500
@@ -85,7 +85,7 @@ export default function AISystem() {
           <div className="card">
             <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Database size={16} style={{ color: 'var(--accent-primary)' }} /> 
+                <Database size={16} style={{ color: 'var(--accent-primary)' }} />
                 Cơ sở dữ liệu Vector Face Embeddings ({embeddings.length})
               </span>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -93,12 +93,12 @@ export default function AISystem() {
                   <RefreshCw size={12} className={loading ? 'spin' : ''} style={{ animation: loading ? 'spin 2s linear infinite' : 'none' }} /> Làm mới
                 </button>
                 <button className="btn btn-sm btn-primary" onClick={handleRebuildAll} disabled={processing || loading} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <RefreshCw size={12} className={processing ? 'spin' : ''} style={{ animation: processing ? 'spin 2s linear infinite' : 'none' }} /> 
+                  <RefreshCw size={12} className={processing ? 'spin' : ''} style={{ animation: processing ? 'spin 2s linear infinite' : 'none' }} />
                   {processing ? 'Đang trích xuất...' : 'Trích xuất lại toàn bộ'}
                 </button>
               </div>
             </div>
-            
+
             {loading ? (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                 <RefreshCw size={24} className="spin" style={{ animation: 'spin 2s linear infinite', marginRight: '0.5rem' }} />
@@ -127,10 +127,10 @@ export default function AISystem() {
                         {emb.updated_at ? new Date(emb.updated_at).toLocaleString('vi-VN') : '—'}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <button 
-                          className="btn-icon" 
-                          style={{ color: 'var(--accent-danger)' }} 
-                          onClick={() => handleDelete(emb.employee_id)} 
+                        <button
+                          className="btn-icon"
+                          style={{ color: 'var(--accent-danger)' }}
+                          onClick={() => handleDelete(emb.employee_id)}
                           title="Xóa Vector"
                           disabled={processing}
                         >
@@ -142,7 +142,7 @@ export default function AISystem() {
                 </tbody>
               </table>
             )}
-            
+
             {!loading && embeddings.length === 0 && (
               <div className="empty-state" style={{ padding: '3rem 2rem' }}>
                 <Database size={36} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />

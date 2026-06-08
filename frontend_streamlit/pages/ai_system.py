@@ -50,48 +50,59 @@ def render():
         st.caption(f"Tổng: {len(data)} embeddings | Embedding size: 512")
 
         if st.button("🔄 Rebuild All Embeddings", use_container_width=True):
-            st.info("💡 Chạy: `python -m src.attendance.build_embeddings`")
+            with st.spinner("Đang tính toán và cập nhật lại toàn bộ Embeddings lên Supabase..."):
+                res = rebuild_embeddings()
+                if "error" in res:
+                    st.error(f"Lỗi: {res['error']}")
+                else:
+                    st.success("Đã rebuild và đồng bộ embeddings thành công!")
+                    st.rerun()
 
     # ── Tab 2: Model Evaluation ──
     with tab2:
         st.markdown('<div class="section-header">Model Evaluation</div>', unsafe_allow_html=True)
 
-        st.markdown("""
+        import os
+        from src.config import FINAL_CHECKPOINT_PATH
+
+        model_filename = os.path.basename(FINAL_CHECKPOINT_PATH)
+
+        st.markdown(f"""
         <div class="emp-card">
-            <p style="opacity: 0.7;">Current Model</p>
-            <h3 style="color: #a78bfa;">arcface_vggface2_warmup.pth</h3>
+            <p style="opacity: 0.7; margin-bottom: 4px;">Mô hình hiện tại (Active Backbone)</p>
+            <h3 style="color: #3b82f6; margin-top: 0;">{model_filename}</h3>
         </div>
         """, unsafe_allow_html=True)
 
+        # Choose metrics based on model
+        if "finetuned" in model_filename or "rmfrd" in model_filename:
+            r1, r5, eer, thr = "7.11%", "23.35%", "32.28%", "0.44"
+        elif "warmup" in model_filename:
+            r1, r5, eer, thr = "4.57%", "16.24%", "42.80%", "0.11"
+        else:
+            r1, r5, eer, thr = "—", "—", "—", "—"
+
         mc1, mc2, mc3, mc4 = st.columns(4)
         with mc1:
-            st.metric("Accuracy", "—")
+            st.metric("Rank-1 Accuracy", r1)
         with mc2:
-            st.metric("FAR", "—")
+            st.metric("Rank-5 Accuracy", r5)
         with mc3:
-            st.metric("FRR", "—")
+            st.metric("Equal Error Rate (EER)", eer)
         with mc4:
-            st.metric("F1 Score", "—")
+            st.metric("Ngưỡng tối ưu EER", thr)
 
         st.markdown("---")
 
-        bc1, bc2 = st.columns(2)
-        with bc1:
-            if st.button("▶️ Run Evaluation", use_container_width=True, type="primary"):
-                st.info("💡 Chạy: `python -m src.evaluation.evaluate_models`")
-        with bc2:
-            if st.button("📥 Export Report", use_container_width=True):
-                st.info("Xem trong thư mục `evaluation_reports/`")
-
-        st.markdown("---")
-        st.markdown("""
-        > **Metrics bao gồm:**
-        > - Accuracy, Precision, Recall, F1
-        > - FAR (False Accept Rate), FRR (False Reject Rate)
-        > - EER (Equal Error Rate)
-        > - Rank-K Identification Rate
-        > - Confusion Matrix
-        """)
+        # Load and render detailed report if exists
+        report_path = "evaluation_reports/afdb_masked_evaluation_report.md"
+        if os.path.exists(report_path):
+            with open(report_path, "r", encoding="utf-8") as f:
+                report_content = f.read()
+            st.markdown("### 📋 Báo cáo đánh giá chi tiết (AFDB Masked Face)")
+            st.markdown(report_content)
+        else:
+            st.info("Chưa có báo cáo đánh giá chi tiết trong thư mục `evaluation_reports/`.")
 
     # ── Tab 3: Anti-Spoofing ──
     with tab3:

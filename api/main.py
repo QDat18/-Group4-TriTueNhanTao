@@ -387,7 +387,7 @@ def list_embeddings():
     try:
         resp = supabase.table("face_embeddings").select(
             "employee_id, image_count, created_at, employees(full_name)"
-        ).order("created_at", descending=True).execute()
+        ).order("created_at", desc=True).execute()
         
         seen_ids = set()
         formatted = []
@@ -770,6 +770,56 @@ def update_settings(req: SettingsSchema):
         config.CAMERA_IP_URL = req.camera_ip_url
         
         return {"message": "Settings updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/model/info")
+def get_model_info():
+    """Get active face recognition model details, metrics, and report."""
+    try:
+        from src import config
+        import os
+        
+        model_path = config.FINAL_CHECKPOINT_PATH
+        model_name = os.path.basename(model_path)
+        
+        # Set metrics based on model
+        if "finetuned" in model_name or "rmfrd" in model_name:
+            metrics = {
+                "rank1": "7.11%",
+                "rank5": "23.35%",
+                "eer": "32.28%",
+                "threshold": "0.44"
+            }
+        elif "warmup" in model_name:
+            metrics = {
+                "rank1": "4.57%",
+                "rank5": "16.24%",
+                "eer": "42.80%",
+                "threshold": "0.11"
+            }
+        else:
+            metrics = {
+                "rank1": "—",
+                "rank5": "—",
+                "eer": "—",
+                "threshold": "—"
+            }
+            
+        # Try to read the evaluation report
+        report_content = ""
+        report_path = "evaluation_reports/afdb_masked_evaluation_report.md"
+        if os.path.exists(report_path):
+            with open(report_path, "r", encoding="utf-8") as f:
+                report_content = f.read()
+                
+        return {
+            "model_path": model_path,
+            "model_name": model_name,
+            "metrics": metrics,
+            "report": report_content
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

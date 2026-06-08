@@ -54,18 +54,14 @@ TRAIN_LOG_PATH = os.path.join(LOG_DIR, "train_log.csv")
 # =========================
 
 RMFRD_ROOTS = [
-    # Real-World Masked Face Dataset - Part 1
-    "dataset/RMFRDvaSMFRD/Real-World-Masked-Face-Dataset/RWMFD_part_1",
-
-    # Real-World Masked Face Dataset - Part 2
-    "dataset/RMFRDvaSMFRD/Real-World-Masked-Face-Dataset/RMFD/RWMFD_part_2_pro",
-
-    # Folder thứ 3 nếu có cấu trúc theo danh tính
-    # Nếu folder chưa tồn tại hoặc chưa đúng cấu trúc, loader sẽ bỏ qua.
-    "dataset/RMFRDvaSMFRD/Real-World-Masked-Face-Dataset/RMFD/RWMFD_part_3_pro",
+    # AFDB unmasked face dataset
+    "dataset/RWFRD/AFDB_face_dataset/AFDB_face_dataset",
+    # AFDB masked face dataset
+    "dataset/RWFRD/AFDB_masked_face_dataset/AFDB_masked_face_dataset",
 ]
 
 RMFRD_USE_SUBSET = True
+RMFRD_SPLIT_RATIO = 0.8
 
 # Có thể tăng sau khi test loader ổn
 RMFRD_MAX_CLASSES = 2000
@@ -79,10 +75,10 @@ RMFRD_BATCH_SIZE = 64
 RMFRD_NUM_WORKERS = 4
 
 RMFRD_TOTAL_EPOCHS = 8
-RMFRD_WARMUP_EPOCHS = 1
+RMFRD_WARMUP_EPOCHS = 2
 
 # LR nhỏ hơn VGGFace2 vì đây là fine-tuning tiếp
-RMFRD_BASE_LR = 5e-5
+RMFRD_BASE_LR = 1e-4
 RMFRD_MIN_LR = 1e-6
 RMFRD_WEIGHT_DECAY = 5e-4
 
@@ -106,7 +102,7 @@ RMFRD_LOG_PATH = os.path.join(LOG_DIR, "train_rmfrd_log.csv")
 
 INHOUSE_ROOT = "dataset/in-house"
 
-FINAL_CHECKPOINT_PATH = "checkpoints/arcface_vggface2_warmup_lite.pth"
+FINAL_CHECKPOINT_PATH = "checkpoints/arcface_rmfrd_finetuned_lite.pth"
 
 EMPLOYEE_EMBEDDINGS_PATH = "models/embeddings/employee_embeddings.pkl"
 

@@ -835,3 +835,19 @@ select.input {
   background: #f0fdf4;
   border-color: #bbf7d0;
 }
+
+/* Green pulse animation for recent attendance log card */
+@keyframes pulse-green {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+    background-color: rgba(16, 185, 129, 0.08);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(16, 185, 129, 0);
+    background-color: rgba(16, 185, 129, 0.02);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    background-color: rgba(16, 185, 129, 0);
+  }
+}

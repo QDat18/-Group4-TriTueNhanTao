@@ -10,14 +10,21 @@ def get_train_transform():
         transforms.Resize((112, 112)),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.ColorJitter(
-            brightness=0.15,
-            contrast=0.15,
-            saturation=0.10
+            brightness=0.3,
+            contrast=0.3,
+            saturation=0.2
+        ),
+        transforms.GaussianBlur(
+            kernel_size=3
         ),
         transforms.ToTensor(),
         transforms.Normalize(
             mean=[0.5, 0.5, 0.5],
             std=[0.5, 0.5, 0.5]
+        ),
+        transforms.RandomErasing(
+            p=0.5,
+            scale=(0.02, 0.15)
         )
     ])
 
