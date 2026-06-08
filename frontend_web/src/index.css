@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════
    HVNH FACEID — Design System v4
-   Modern • Warm • Professional
+   Modern • Warm • Professional ok
    ═══════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&display=swap');
@@ -714,4 +714,5 @@ select.input {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
-}
+} 
+
