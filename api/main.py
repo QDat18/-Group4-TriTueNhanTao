@@ -678,7 +678,57 @@ def get_report_by_department():
 
 import subprocess
 
-active_process = None
+import threading
+
+# Thread-based registration control
+registration_active = False
+active_employee_id = None
+canceled_registrations = set()
+registration_lock = threading.Lock()
+
+def run_registration_in_background(employee_id, full_name, department, position, max_images, camera_stream):
+    global registration_active, realtime_system, canceled_registrations
+    try:
+        from src.attendance.register_employee import capture_dataset
+        from src.attendance.build_embeddings import EmbeddingBuilder
+        
+        def should_cancel():
+            return employee_id in canceled_registrations
+            
+        # 1. Capture dataset (using shared camera stream)
+        capture_dataset(
+            employee_id=employee_id,
+            max_images=max_images,
+            no_gui=True,
+            camera_stream=camera_stream,
+            should_cancel=should_cancel
+        )
+        
+        if should_cancel():
+            print(f"[REGISTRATION] Canceled for {employee_id}. Embedding build skipped.")
+            return
+            
+        # 2. Build embeddings (which also uploads to Supabase)
+        builder = EmbeddingBuilder()
+        builder.run()
+        
+        # 3. Reload embeddings in active realtime system
+        if realtime_system is not None:
+            try:
+                realtime_system.attendance_service.load_embeddings()
+                print("Automatically reloaded embeddings after successful face registration.")
+            except Exception as re:
+                print(f"Error reloading embeddings: {re}")
+                
+        print(f"[REGISTRATION] Successfully completed for {employee_id}")
+    except Exception as e:
+        import traceback
+        print(f"[REGISTRATION] Error in background thread: {e}")
+        traceback.print_exc()
+    finally:
+        with registration_lock:
+            registration_active = False
+            canceled_registrations.discard(employee_id)
 
 class RegisterStartRequest(BaseModel):
     employee_id: str
@@ -688,12 +738,16 @@ class RegisterStartRequest(BaseModel):
 
 @app.post("/api/register/start")
 def start_registration(req: RegisterStartRequest):
-    global active_process
+    global registration_active, active_employee_id, canceled_registrations
     try:
-        if active_process and active_process.poll() is None:
-            active_process.terminate()
-            active_process.wait()
+        with registration_lock:
+            if registration_active:
+                return {"status": "already_running"}
+            registration_active = True
+            active_employee_id = req.employee_id
             
+        canceled_registrations.discard(req.employee_id)
+        
         payload = {
             "employee_id": req.employee_id,
             "full_name": req.full_name,
@@ -702,69 +756,52 @@ def start_registration(req: RegisterStartRequest):
         }
         supabase.table("employees").upsert(payload).execute()
         
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # Get shared camera stream (webcam 0)
+        from src.attendance.realtime_recognition import get_shared_camera_stream
+        stream = get_shared_camera_stream(0)
         
-        cmd = [
-            sys.executable,
-            "-m",
-            "src.attendance.register_employee",
-            "--employee_id", req.employee_id,
-            "--full_name", req.full_name,
-            "--department", req.department,
-            "--position", req.position,
-            "--max_images", "100"
-        ]
-        
-        active_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            cwd=project_root,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
+        t = threading.Thread(
+            target=run_registration_in_background,
+            kwargs={
+                "employee_id": req.employee_id,
+                "full_name": req.full_name,
+                "department": req.department,
+                "position": req.position,
+                "max_images": 50,
+                "camera_stream": stream
+            },
+            daemon=True
         )
+        t.start()
         return {"status": "started"}
     except Exception as e:
+        with registration_lock:
+            registration_active = False
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/register/progress")
 def get_registration_progress(employee_id: str):
-    global active_process, realtime_system
+    global registration_active
     try:
         path = os.path.join("dataset", "in-house", employee_id)
         count = 0
         if os.path.exists(path):
-            count = len([f for f in os.listdir(path) if f.endswith(".jpg")])
-            
-        running = False
-        if active_process:
-            if active_process.poll() is None:
-                running = True
-            else:
-                active_process = None
-                # Auto reload embeddings in running live app
-                if realtime_system is not None:
-                    try:
-                        realtime_system.attendance_service.load_embeddings()
-                        print("Automatically reloaded embeddings after successful face registration.")
-                    except Exception as re:
-                        print(f"Error reloading embeddings: {re}")
+            count = len([f for f in os.listdir(path) if f.lower().endswith((".jpg", ".jpeg", ".png"))])
             
         return {
             "count": count,
-            "max_images": 100,
-            "is_running": running
+            "max_images": 50,
+            "is_running": registration_active
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/register/stop")
 def stop_registration():
-    global active_process
+    global active_employee_id, canceled_registrations
     try:
-        if active_process and active_process.poll() is None:
-            active_process.terminate()
-            active_process.wait()
-            active_process = None
+        if active_employee_id:
+            canceled_registrations.add(active_employee_id)
         return {"status": "stopped"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

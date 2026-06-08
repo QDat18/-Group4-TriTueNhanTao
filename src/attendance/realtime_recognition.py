@@ -85,6 +85,19 @@ class CameraStream:
             self.thread.join(timeout=1.0)
 
 
+_shared_camera_streams = {}
+_shared_camera_lock = threading.Lock()
+
+def get_shared_camera_stream(camera_id=0):
+    global _shared_camera_streams
+    with _shared_camera_lock:
+        if camera_id not in _shared_camera_streams:
+            stream = CameraStream(camera_id)
+            stream.start()
+            _shared_camera_streams[camera_id] = stream
+        return _shared_camera_streams[camera_id]
+
+
 class InferenceWorker:
     def __init__(self, system, camera_stream):
         self.system = system
@@ -454,8 +467,7 @@ class RealtimeRecognition:
             if camera_id not in self.active_streams:
                 print(f"[CAMERA] Opening camera {camera_id}...")
 
-                stream = CameraStream(camera_id)
-                stream.start()
+                stream = get_shared_camera_stream(camera_id)
 
                 init_start = time.time()
                 success = False
@@ -474,8 +486,6 @@ class RealtimeRecognition:
                         f"Error: Could not open camera {camera_id}. "
                         f"Yielding placeholder offline frame."
                     )
-
-                    stream.stop()
 
                     placeholder = np.zeros(
                         (480, 640, 3),
@@ -507,8 +517,6 @@ class RealtimeRecognition:
                     stream
                 )
 
-                worker.start()
-
                 self.active_streams[camera_id] = {
                     "stream": stream,
                     "worker": worker,
@@ -520,6 +528,9 @@ class RealtimeRecognition:
 
             stream = stream_info["stream"]
             worker = stream_info["worker"]
+
+            if not worker.running:
+                worker.start()
 
         last_frame_id = -1
 
@@ -588,11 +599,7 @@ class RealtimeRecognition:
                     stream_info["ref_count"] -= 1
 
                     if stream_info["ref_count"] <= 0:
-                        threading.Thread(
-                            target=self._delayed_stop_stream,
-                            args=(camera_id,),
-                            daemon=True
-                        ).start()
+                        stream_info["worker"].stop()
 
 
 if __name__ == "__main__":

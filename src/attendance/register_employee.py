@@ -73,7 +73,10 @@ def brightness_score(image):
 def capture_dataset(
     employee_id,
     max_images=50,
-    interval=1.0
+    interval=1.0,
+    no_gui=False,
+    camera_stream=None,
+    should_cancel=None
 ):
 
     save_dir = os.path.join(
@@ -95,20 +98,21 @@ def capture_dataset(
 
     # Initialize camera with DirectShow, fallback if fails
     cap = None
-    try:
-        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    except Exception as e:
-        print(f"Warning: DirectShow init failed: {e}")
-        cap = None
-    if cap is None or not cap.isOpened():
-        # Fallback to default VideoCapture
-        cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print("Error: Could not open camera for registration. Using placeholder frame.")
-        # Create placeholder frame to keep pipeline alive (black with warning text)
-        placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
-        cv2.putText(placeholder, "CAMERA OFFLINE", (180, 240), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
-        # We'll use this placeholder inside the loop when capture fails
+    if camera_stream is None:
+        try:
+            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        except Exception as e:
+            print(f"Warning: DirectShow init failed: {e}")
+            cap = None
+        if cap is None or not cap.isOpened():
+            # Fallback to default VideoCapture
+            cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            print("Error: Could not open camera for registration.")
+            return None
+    else:
+        print("[REGISTRATION] Using shared global camera stream.")
+
     count = 0
     last_capture = 0
 
@@ -118,15 +122,21 @@ def capture_dataset(
     print("=" * 60)
 
     while True:
+        if should_cancel and should_cancel():
+            print("[REGISTRATION] Capture cancelled.")
+            break
 
-        if cap and cap.isOpened():
+        if camera_stream:
+            ret, frame, _ = camera_stream.read()
+        elif cap and cap.isOpened():
             ret, frame = cap.read()
         else:
-            # Use placeholder when camera unavailable
-            ret = True
-            frame = placeholder.copy()
+            break
 
         if not ret:
+            if camera_stream:
+                time.sleep(0.05)
+                continue
             break
         display = frame.copy()
 
@@ -204,10 +214,11 @@ def capture_dataset(
             2
         )
 
-        cv2.imshow(
-            "Register Employee",
-            display
-        )
+        if not no_gui:
+            cv2.imshow(
+                "Register Employee",
+                display
+            )
 
         now = time.time()
 
@@ -248,9 +259,11 @@ def capture_dataset(
         if count >= max_images:
             break
 
-    cap.release()
+    if cap and cap.isOpened():
+        cap.release()
 
-    cv2.destroyAllWindows()
+    if not no_gui:
+        cv2.destroyAllWindows()
 
     print()
     print("=" * 60)
@@ -290,6 +303,12 @@ def main():
         type=int
     )
 
+    parser.add_argument(
+        "--no-gui",
+        action="store_true",
+        help="Run without OpenCV GUI window"
+    )
+
     args = parser.parse_args()
 
     create_employee(
@@ -301,7 +320,8 @@ def main():
 
     capture_dataset(
         employee_id=args.employee_id,
-        max_images=args.max_images
+        max_images=args.max_images,
+        no_gui=args.no_gui
     )
 
     print()

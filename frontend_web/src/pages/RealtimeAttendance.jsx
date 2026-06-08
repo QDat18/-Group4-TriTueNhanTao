@@ -304,7 +304,18 @@ export default function RealtimeAttendance() {
           </div>
         </div>
       </div>
-
+      <button
+        className={`btn ${isStreaming ? 'btn-danger' : 'btn-primary'}`}
+        onClick={() => {
+          setStreamError(false);
+          setCurrentFace(null);
+          setCurrentFaceTs(null);
+          setIsStreaming(prev => !prev);
+        }}
+      >
+        {isStreaming ? <Square size={16} /> : <Play size={16} />}
+        {isStreaming ? 'Dừng nhận diện' : 'Bắt đầu nhận diện'}
+      </button>
       {/* ── Stats row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
         {[

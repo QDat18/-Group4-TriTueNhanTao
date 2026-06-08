@@ -344,7 +344,6 @@ export default function FaceRegistration() {
 
   useEffect(() => {
     loadEmployeeData();
-    startCamera();
 
     return () => {
       stopCamera();
@@ -367,6 +366,7 @@ export default function FaceRegistration() {
 
   const handleSelectEmployee = (id) => {
     resetCaptureState();
+    stopCamera();
 
     if (id === 'NEW_MANUAL') {
       setIsManualInput(true);
@@ -432,9 +432,17 @@ export default function FaceRegistration() {
         });
       }
 
-      if (count >= MAX_IMAGES || (!res.is_running && count > 0)) {
+      if (count >= MAX_IMAGES || !res.is_running) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
+
+        if (count === 0) {
+          setStatus('error');
+          setErrorMessage("Không thể khởi động camera hoặc quá trình chụp ảnh bị lỗi. Vui lòng kiểm tra lại camera!");
+          await stopRegistration();
+          startCamera();
+          return;
+        }
 
         setStatus('success');
         setSuccessMessage(`Đã chụp xong ${count} ảnh mẫu cho ${form.full_name || employeeId}. Bấm Tạo vector để hoàn tất nhận diện.`);
@@ -751,7 +759,10 @@ export default function FaceRegistration() {
                 <button
                   className="btn btn-primary"
                   style={{ flex: 1 }}
-                  onClick={() => setUiStep(2)}
+                  onClick={() => {
+                    setUiStep(2);
+                    startCamera();
+                  }}
                   disabled={!form.employee_id || !form.full_name}
                 >
                   <Camera size={15} />
