@@ -664,7 +664,7 @@ select.input {
 }
 
 .face-circle-guide {
-  width: 200px; height: 200px;
+  width: 210px; height: 280px;
   border: 2px dashed rgba(255,255,255,.35);
   border-radius: 50%;
   box-shadow: 0 0 0 9999px rgba(13,17,23,.6);
