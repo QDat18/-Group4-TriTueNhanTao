@@ -72,7 +72,7 @@ def brightness_score(image):
 
 def capture_dataset(
     employee_id,
-    max_images=100,
+    max_images=50,
     interval=1.0
 ):
 
@@ -286,7 +286,7 @@ def main():
 
     parser.add_argument(
         "--max_images",
-        default=100,
+        default=50,
         type=int
     )
 

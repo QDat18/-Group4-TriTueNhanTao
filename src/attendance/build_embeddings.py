@@ -149,6 +149,13 @@ class EmbeddingBuilder:
                 image_count
             )
 
+            # Upload images to Supabase Storage
+            from src.database.supabase_client import upload_inhouse_file
+            for filename in os.listdir(employee_path):
+                if filename.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
+                    filepath = os.path.join(employee_path, filename)
+                    upload_inhouse_file(employee_id, filename, filepath)
+
             print(
                 f"Saved: {employee_id}"
                 f" | Images: {image_count}"

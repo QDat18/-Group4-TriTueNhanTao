@@ -18,7 +18,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -38,6 +38,17 @@ app = FastAPI(
     version="1.0.0",
 )
 
+@app.on_event("startup")
+def startup_event():
+    """Sync existing images from Supabase Storage on startup."""
+    try:
+        from src.database.supabase_client import sync_supabase_to_inhouse
+        print("[Startup] Syncing in-house photos from Supabase Storage...")
+        count = sync_supabase_to_inhouse()
+        print(f"[Startup] Sync completed. Downloaded {count} files.")
+    except Exception as e:
+        print(f"[Startup] Error syncing from Supabase: {e}")
+
 # Simple in-memory query cache to reduce load on Supabase during aggressive frontend polling
 query_cache = {}
 
@@ -52,9 +63,42 @@ def get_cached_data(cache_key):
 def set_cached_data(cache_key, val, ttl_seconds=3.0):
     query_cache[cache_key] = (val, time.time() + ttl_seconds)
 
-# Ensure portrait directory exists and mount static files
+# Ensure portrait directory exists
 os.makedirs("dataset/in-house", exist_ok=True)
-app.mount("/api/portraits", StaticFiles(directory="dataset/in-house"), name="portraits")
+
+@app.get("/api/portraits/{employee_id}/{filename}")
+def get_portrait(employee_id: str, filename: str):
+    """Retrieve a portrait from local cache, or download it from Supabase Storage if missing."""
+    local_path = os.path.join("dataset", "in-house", employee_id, filename)
+    if os.path.exists(local_path):
+        return FileResponse(local_path)
+    
+    # Try downloading from Supabase storage
+    from src.database.supabase_client import download_inhouse_file
+    success = download_inhouse_file(employee_id, filename, local_path)
+    if success and os.path.exists(local_path):
+        return FileResponse(local_path)
+        
+    raise HTTPException(status_code=404, detail="Portrait not found")
+
+@app.delete("/api/portraits/{employee_id}")
+def delete_portraits(employee_id: str):
+    """Clean up portraits local directory and Supabase storage."""
+    try:
+        portrait_dir = os.path.join("dataset", "in-house", employee_id)
+        if os.path.exists(portrait_dir):
+            import shutil
+            try:
+                shutil.rmtree(portrait_dir)
+            except Exception as se:
+                print(f"Warning: Could not remove local files for {employee_id}: {se}")
+                
+        from src.database.supabase_client import delete_inhouse_folder
+        delete_inhouse_folder(employee_id)
+        
+        return {"status": "success", "message": "Portraits deleted successfully from local and Supabase Storage"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 app.add_middleware(
     CORSMiddleware,
@@ -335,6 +379,13 @@ def delete_employee(employee_id: str):
                 shutil.rmtree(portrait_dir)
             except Exception as se:
                 print(f"Warning: Could not remove local files for {employee_id}: {se}")
+
+        # 3b. Clean up Supabase Storage files
+        from src.database.supabase_client import delete_inhouse_folder
+        try:
+            delete_inhouse_folder(employee_id)
+        except Exception as sse:
+            print(f"Warning: Could not remove Supabase Storage files for {employee_id}: {sse}")
 
         # 4. Trigger memory reload in active realtime camera loop
         global realtime_system
