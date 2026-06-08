@@ -7,6 +7,9 @@ export default function RealtimeAttendance() {
   const [isStreaming, setIsStreaming] = useState(true);
   const [streamError, setStreamError] = useState(false);
   const [selectedCameraId, setSelectedCameraId] = useState('system');
+  const [currentFace, setCurrentFace] = useState(null);
+  const [currentFaceTimestamp, setCurrentFaceTimestamp] = useState(null);
+  const currentFacePollRef = useRef(null);
   const [stats, setStats] = useState({
     present: 0,
     late: 0,
@@ -21,8 +24,9 @@ export default function RealtimeAttendance() {
   const [streamUrl, setStreamUrl] = useState(() => {
     return `http://localhost:8000/api/attendance/stream?t=${Date.now()}`;
   });
-  
+
   const pollIntervalRef = useRef(null);
+  const BACKEND = 'http://localhost:8000';
 
   const loadData = () => {
     Promise.all([
@@ -32,18 +36,18 @@ export default function RealtimeAttendance() {
       .then(([logsRes, summaryRes]) => {
         const fetchedLogs = logsRes.data || [];
         setLogs(fetchedLogs);
-        
+
         const totalEmpCount = (summaryRes && !summaryRes.error) ? summaryRes.total_employees : 10;
-        
+
         // Calculate daily stats dynamically based on logs of today (local date)
         const todayStr = new Date().toISOString().slice(0, 10);
         const todayLogs = fetchedLogs.filter(log => log.check_time && log.check_time.startsWith(todayStr));
-        
+
         // Find unique employees present today
         const presentIds = new Set(todayLogs.map(log => log.employee_id));
         const lateLogs = todayLogs.filter(log => log.status === 'LATE');
         const uniqueLateIds = new Set(lateLogs.map(log => log.employee_id));
-        
+
         const presentCount = presentIds.size;
         const lateCount = uniqueLateIds.size;
         const absentCount = Math.max(0, totalEmpCount - presentCount);
@@ -105,8 +109,45 @@ export default function RealtimeAttendance() {
     };
   }, [isStreaming]);
 
+  // Poll current face being scanned from the camera in real-time
+  useEffect(() => {
+    const pollCurrentFace = () => {
+      fetch(`${BACKEND}/api/attendance/current-face`)
+        .then(r => r.json())
+        .then(res => {
+          if (res.data) {
+            setCurrentFace(res.data);
+            setCurrentFaceTimestamp(Date.now());
+          } else {
+            // Clear display if no face detected for more than 3 seconds
+            setCurrentFaceTimestamp(prev => {
+              if (prev !== null && Date.now() - prev > 3000) {
+                setCurrentFace(null);
+                return null;
+              }
+              return prev;
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    if (isStreaming) {
+      pollCurrentFace();
+      currentFacePollRef.current = setInterval(pollCurrentFace, 500);
+    } else {
+      clearInterval(currentFacePollRef.current);
+      setCurrentFace(null);
+      setCurrentFaceTimestamp(null);
+    }
+
+    return () => clearInterval(currentFacePollRef.current);
+  }, [isStreaming]);
+
   const latestLog = logs.length > 0 ? logs[0] : null;
   const isRecent = latestLog ? (new Date() - new Date(latestLog.check_time)) < 8000 : false;
+  // Display current face being scanned; fall back to latest log briefly after recognition
+  const displayFace = currentFace || null;
 
   const formatTime = (isoString) => {
     if (!isoString) return '—';
@@ -169,7 +210,7 @@ export default function RealtimeAttendance() {
 
   return (
     <div className="animate-in" style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '3rem' }}>
-      
+
       {/* Page Title & Rules */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
         <div>
@@ -180,7 +221,7 @@ export default function RealtimeAttendance() {
             Nhận diện sinh trắc học thời gian thực, tự động tính toán thời gian đi muộn & chống giả mạo
           </p>
         </div>
-        
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.6rem 1rem', borderRadius: 'var(--radius-md)', fontSize: '0.82rem', color: '#334155', fontWeight: 600 }}>
           <ShieldCheck size={16} style={{ color: 'var(--accent-primary)' }} />
           <span>Giờ làm việc: <strong>{policy.work_start_time}</strong> (Cho phép trễ {policy.allow_late_minutes} phút)</span>
@@ -244,7 +285,7 @@ export default function RealtimeAttendance() {
 
       {/* Main interactive grid */}
       <div className="grid-2" style={{ gap: '1.5rem', alignItems: 'stretch' }}>
-        
+
         {/* Left: Camera Feed */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -252,8 +293,8 @@ export default function RealtimeAttendance() {
               📹 Camera giám sát (Cổng 01)
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-              <select 
-                value={selectedCameraId} 
+              <select
+                value={selectedCameraId}
                 onChange={e => {
                   setSelectedCameraId(e.target.value);
                   setStreamError(false);
@@ -283,34 +324,34 @@ export default function RealtimeAttendance() {
             </div>
           </div>
 
-          <div style={{ 
-            background: '#090d16', 
-            borderRadius: 'var(--radius-md)', 
+          <div style={{
+            background: '#090d16',
+            borderRadius: 'var(--radius-md)',
             flexGrow: 1,
             minHeight: '380px',
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            overflow: 'hidden', 
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
             position: 'relative',
             border: '1px solid #1e293b',
             boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.5)'
           }}>
             {isStreaming && streamUrl ? (
               <>
-                <img 
-                  src={streamUrl} 
+                <img
+                  src={streamUrl}
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  alt="Camera Live Stream" 
+                  alt="Camera Live Stream"
                   onError={handleStreamError}
                 />
-                
+
                 {/* HUD Camera Target Indicator overlay */}
                 <div className="camera-overlay">
                   <div className={`face-circle-guide ${isStreaming ? 'active' : ''}`}>
                     <div className="scanner-laser" />
                   </div>
-                  
+
                   {/* Info HUD */}
                   <div style={{ position: 'absolute', bottom: '1rem', left: '1rem', color: '#10b981', fontFamily: 'monospace', fontSize: '0.72rem', background: 'rgba(15,23,42,0.85)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid #334155' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#22c55e', fontWeight: 'bold' }}>
@@ -340,16 +381,16 @@ export default function RealtimeAttendance() {
 
           <div style={{ marginTop: '1rem' }}>
             {isStreaming ? (
-              <button 
-                className="btn btn-danger" 
+              <button
+                className="btn btn-danger"
                 style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem' }}
                 onClick={() => setIsStreaming(false)}
               >
                 <Square size={14} /> Dừng Quét Điểm Danh
               </button>
             ) : (
-              <button 
-                className="btn btn-primary" 
+              <button
+                className="btn btn-primary"
                 style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem' }}
                 onClick={handleStartStream}
               >
@@ -367,104 +408,112 @@ export default function RealtimeAttendance() {
             </span>
           </div>
 
-          {latestLog ? (
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
+          {displayFace ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
               justifyContent: 'center',
               flexGrow: 1,
-              animation: isRecent ? 'pulse-green 1.5s ease-out' : 'none'
+              animation: 'pulse-green 1.5s ease-out'
             }}>
-              
+
               {/* Profile Avatar Ring */}
-              <div style={{ 
-                width: 140, 
-                height: 140, 
-                borderRadius: '50%', 
-                overflow: 'hidden', 
-                border: `4px solid ${latestLog.status === 'SUCCESS' ? '#10b981' : latestLog.status === 'LATE' ? '#f59e0b' : '#ef4444'}`, 
-                marginBottom: '1rem', 
+              <div style={{
+                width: 140,
+                height: 140,
+                borderRadius: '50%',
+                overflow: 'hidden',
+                border: `4px solid ${
+                  displayFace.status === 'SUCCESS' ? '#10b981'
+                  : displayFace.status === 'LATE' ? '#f59e0b'
+                  : displayFace.status === 'COOLDOWN' ? '#6366f1'
+                  : '#ef4444'
+                }`,
+                marginBottom: '1rem',
                 background: '#f8fafc',
                 boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
                 position: 'relative'
               }}>
-                <img 
-                  src={`http://localhost:8000/api/portraits/${latestLog.employee_id}/${latestLog.employee_id}_000.jpg`} 
-                  alt={latestLog.full_name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(latestLog.full_name)}&background=2563eb&color=fff&size=200`;
-                  }}
-                />
+                {/* Look up employee_id from logs by name match */}
+                {(() => {
+                  const matched = logs.find(l => l.full_name === displayFace.full_name);
+                  const empId = matched ? matched.employee_id : null;
+                  return (
+                    <img
+                      src={empId
+                        ? `${BACKEND}/api/portraits/${empId}/${empId}_000.jpg`
+                        : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayFace.full_name)}&background=2563eb&color=fff&size=200`
+                      }
+                      alt={displayFace.full_name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayFace.full_name)}&background=2563eb&color=fff&size=200`;
+                      }}
+                    />
+                  );
+                })()}
               </div>
 
               {/* Name and Basic details */}
               <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.25rem 0', textAlign: 'center' }}>
-                {latestLog.full_name}
+                {displayFace.full_name}
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 500, margin: '0 0 1rem 0' }}>
-                ID: <strong style={{ color: 'var(--text-primary)' }}>{latestLog.employee_id}</strong> &nbsp;•&nbsp; Phòng: <strong style={{ color: 'var(--text-primary)' }}>{latestLog.department || '—'}</strong>
-              </p>
+              {(() => {
+                const matched = logs.find(l => l.full_name === displayFace.full_name);
+                return matched ? (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 500, margin: '0 0 1rem 0' }}>
+                    ID: <strong style={{ color: 'var(--text-primary)' }}>{matched.employee_id}</strong> &nbsp;•&nbsp; Phòng: <strong style={{ color: 'var(--text-primary)' }}>{matched.department || '—'}</strong>
+                  </p>
+                ) : (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 500, margin: '0 0 1rem 0' }}>
+                    Đang nhận diện...
+                  </p>
+                );
+              })()}
 
               {/* Status Pill */}
               {(() => {
-                const statusDetails = getStatusDetails(latestLog.status);
+                const statusMap = {
+                  SUCCESS: { color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0', text: 'Đúng giờ', icon: <CheckCircle size={14} style={{ color: '#10b981' }} /> },
+                  LATE:    { color: '#f59e0b', bg: '#fffbeb', border: '#fde68a', text: 'Đi muộn',  icon: <Clock size={14} style={{ color: '#f59e0b' }} /> },
+                  COOLDOWN:{ color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe', text: 'Trong cooldown', icon: <Clock size={14} style={{ color: '#6366f1' }} /> },
+                };
+                const s = statusMap[displayFace.status] || { color: '#ef4444', bg: '#fef2f2', border: '#fca5a5', text: 'Đang quét...', icon: <AlertTriangle size={14} style={{ color: '#ef4444' }} /> };
                 return (
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '0.35rem', 
-                    background: statusDetails.bg, 
-                    color: statusDetails.color, 
-                    border: `1px solid ${statusDetails.border}`,
-                    fontSize: '0.82rem', 
-                    fontWeight: 700,
-                    padding: '0.45rem 1.25rem', 
-                    borderRadius: '50px',
-                    marginBottom: '1.5rem',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                    background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+                    fontSize: '0.82rem', fontWeight: 700,
+                    padding: '0.45rem 1.25rem', borderRadius: '50px',
+                    marginBottom: '1.5rem', boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
                   }}>
-                    {statusDetails.icon}
-                    <span>{statusDetails.text.toUpperCase()}</span>
+                    {s.icon}<span>{s.text.toUpperCase()}</span>
                   </div>
                 );
               })()}
 
-              {/* Data parameters list */}
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '1fr 1fr', 
-                gap: '1rem', 
-                width: '100%', 
-                background: '#f8fafc', 
-                padding: '1.25rem', 
-                borderRadius: 'var(--radius-md)',
+              {/* Liveness score */}
+              <div style={{
+                width: '100%', background: '#f8fafc',
+                padding: '1.25rem', borderRadius: 'var(--radius-md)',
                 border: '1px solid #e2e8f0'
               }}>
                 <div>
                   <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '0.25rem', textTransform: 'uppercase' }}>
-                    Thời gian quét
+                    Liveness Score (Anti-Spoofing)
                   </span>
-                  <span style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-primary)' }}>
-                    {formatTime(latestLog.check_time)}
-                  </span>
-                </div>
-                <div>
-                  <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '0.25rem', textTransform: 'uppercase' }}>
-                    Mẫu khớp (Similarity)
-                  </span>
-                  <span style={{ fontWeight: 800, fontSize: '1.2rem', fontFamily: 'monospace', color: 'var(--accent-primary)' }}>
-                    {latestLog.similarity ? `${Math.round(latestLog.similarity * 100)}%` : '—'}
+                  <span style={{ fontWeight: 800, fontSize: '1.2rem', fontFamily: 'monospace', color: displayFace.liveness_score > 0.6 ? '#10b981' : '#f59e0b' }}>
+                    {displayFace.liveness_score ? `${(displayFace.liveness_score * 100).toFixed(1)}%` : '—'}
                   </span>
                 </div>
-                <div style={{ gridColumn: 'span 2', borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
+                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', marginTop: '0.75rem' }}>
                   <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '0.25rem', textTransform: 'uppercase' }}>
-                    Ngày ghi nhận
+                    Trạng thái nhận diện
                   </span>
-                  <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
-                    {formatDate(latestLog.check_time)}
+                  <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                    {displayFace.label}
                   </span>
                 </div>
               </div>
@@ -512,8 +561,8 @@ export default function RealtimeAttendance() {
                     <tr key={i} style={i === 0 && isRecent ? { background: 'rgba(16, 185, 129, 0.06)', transition: 'background 0.5s ease' } : {}}>
                       <td style={{ textAlign: 'center' }}>
                         <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--border-color)', background: '#f1f5f9', margin: '0 auto' }}>
-                          <img 
-                            src={`http://localhost:8000/api/portraits/${log.employee_id}/${log.employee_id}_000.jpg`} 
+                          <img
+                            src={`http://localhost:8000/api/portraits/${log.employee_id}/${log.employee_id}_000.jpg`}
                             alt={log.full_name}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             onError={(e) => {
@@ -542,16 +591,16 @@ export default function RealtimeAttendance() {
                         {log.similarity ? `${Math.round(log.similarity * 100)}%` : '—'}
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span style={{ 
-                          display: 'inline-flex', 
-                          alignItems: 'center', 
-                          gap: '0.25rem', 
-                          background: statusDetails.bg, 
-                          color: statusDetails.color, 
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          background: statusDetails.bg,
+                          color: statusDetails.color,
                           border: `1px solid ${statusDetails.border}`,
-                          fontSize: '0.72rem', 
+                          fontSize: '0.72rem',
                           fontWeight: 700,
-                          padding: '0.2rem 0.65rem', 
+                          padding: '0.2rem 0.65rem',
                           borderRadius: '20px'
                         }}>
                           {statusDetails.text.toUpperCase()}
