@@ -91,7 +91,7 @@ export default function RealtimeAttendance() {
     if (isStreaming) {
       pollIntervalRef.current = setInterval(() => {
         loadData();
-      }, 1500);
+      }, 3500);
     } else {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
