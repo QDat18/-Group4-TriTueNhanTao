@@ -51,7 +51,8 @@ class ModelEvaluator:
 
     def __init__(self):
 
-        self.model = FaceRecognitionModel()
+        # self.model = FaceRecognitionModel()
+        self.model = InsightFaceModel()
 
         self.service = AttendanceService()
 

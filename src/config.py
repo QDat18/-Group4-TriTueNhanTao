@@ -102,7 +102,8 @@ RMFRD_LOG_PATH = os.path.join(LOG_DIR, "train_rmfrd_log.csv")
 
 INHOUSE_ROOT = "dataset/in-house"
 
-FINAL_CHECKPOINT_PATH = "checkpoints/arcface_rmfrd_finetuned_lite.pth"
+# FINAL_CHECKPOINT_PATH = "checkpoints/arcface_rmfrd_finetuned_lite.pth"
+FINAL_CHECKPOINT_PATH = "checkpoints/arcface_vggface2_warmup.pth"
 
 EMPLOYEE_EMBEDDINGS_PATH = "models/embeddings/employee_embeddings.pkl"
 
@@ -111,10 +112,10 @@ ATTENDANCE_DB_PATH = "attendance.db"
 import json
 
 # Default settings
-RECOGNITION_THRESHOLD = 0.45
+RECOGNITION_THRESHOLD = 0.35
 COOLDOWN_SECONDS = 43200
 WORK_START_TIME = "08:00"
-ALLOW_LATE_MINUTES = 30
+ALLOW_LATE_MINUTES = 5
 CAMERA_SOURCE_TYPE = "webcam"  # "webcam" or "ip_camera"
 CAMERA_WEBCAM_INDEX = 0
 CAMERA_IP_URL = ""

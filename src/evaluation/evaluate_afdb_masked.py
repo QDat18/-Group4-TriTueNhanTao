@@ -4,7 +4,8 @@ from PIL import Image
 from tqdm import tqdm
 
 from src import config
-from src.models.face_recognition_model import FaceRecognitionModel
+# from src.models.face_recognition_model import FaceRecognitionModel
+from src.models.insightface_model import InsightFaceModel
 from src.utils.transforms import get_val_transform
 
 

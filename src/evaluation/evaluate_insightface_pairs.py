@@ -2,22 +2,17 @@ import os
 import csv
 import argparse
 import numpy as np
+import cv2
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-from PIL import Image
 from tqdm import tqdm
-from sklearn.metrics import roc_auc_score, roc_curve
-
-# from src.models.face_recognition_model import FaceRecognitionModel
-from src.models.insightface_model import InsightFaceModel
-from src.utils.transforms import get_val_transform
+from sklearn.metrics import roc_auc_score, roc_curve, confusion_matrix, ConfusionMatrixDisplay
+from insightface.model_zoo import get_model
 
 
 def cosine_similarity(emb1, emb2):
     emb1 = emb1 / np.linalg.norm(emb1)
     emb2 = emb2 / np.linalg.norm(emb2)
-
     return float(np.dot(emb1, emb2))
 
 
@@ -46,45 +41,32 @@ def calculate_eer(labels, scores):
     scores = np.array(scores)
 
     fpr, tpr, thresholds = roc_curve(labels, scores)
-
     fnr = 1 - tpr
 
     idx = np.nanargmin(np.abs(fpr - fnr))
 
     eer = (fpr[idx] + fnr[idx]) / 2
-
     eer_threshold = thresholds[idx]
 
     return eer, eer_threshold
 
 
-class PairEvaluator:
-    def __init__(self, root_dir, pairs_file, output_csv):
+class InsightFacePairEvaluator:
+    def __init__(self, root_dir, pairs_file, output_csv, ctx_id=-1):
         self.root_dir = root_dir
         self.pairs_file = pairs_file
         self.output_csv = output_csv
 
-        # self.model = FaceRecognitionModel()
-        self.model = InsightFaceModel()
+        model_path = r"C:\Users\Admin\.insightface\models\buffalo_l\w600k_r50.onnx"
 
-        self.transform = get_val_transform()
+        self.rec_model = get_model(
+            model_path,
+            providers=["CPUExecutionProvider"]
+        )
+
+        self.rec_model.prepare(ctx_id=ctx_id)
 
         self.cache = {}
-
-    def load_image_embedding(self, image_path):
-        if image_path in self.cache:
-            return self.cache[image_path]
-
-        image = Image.open(image_path).convert("RGB")
-        image = self.transform(image)
-        image = image.unsqueeze(0)
-
-        embedding = self.model.get_embedding(image)
-        embedding = embedding.squeeze(0).numpy()
-
-        self.cache[image_path] = embedding
-
-        return embedding
 
     def read_pairs(self):
         pairs = []
@@ -112,6 +94,27 @@ class PairEvaluator:
 
         return pairs
 
+    def load_image_embedding(self, image_path):
+        if image_path in self.cache:
+            return self.cache[image_path]
+
+        image = cv2.imread(image_path)
+
+        if image is None:
+            raise RuntimeError(f"Cannot read image: {image_path}")
+
+        if image.shape[:2] != (112, 112):
+            image = cv2.resize(image, (112, 112))
+
+        embedding = self.rec_model.get_feat(image)
+        embedding = embedding.flatten().astype(np.float32)
+
+        embedding = embedding / np.linalg.norm(embedding)
+
+        self.cache[image_path] = embedding
+
+        return embedding
+
     def evaluate(self):
         pairs = self.read_pairs()
 
@@ -119,6 +122,7 @@ class PairEvaluator:
         scores = []
 
         missing = 0
+        failed = 0
 
         for img1, img2, label in tqdm(pairs, desc="Evaluating pairs"):
             if not os.path.exists(img1) or not os.path.exists(img2):
@@ -135,6 +139,7 @@ class PairEvaluator:
                 scores.append(score)
 
             except Exception as e:
+                failed += 1
                 print(f"[WARNING] Skip pair: {img1} | {img2} | {e}")
 
         if len(labels) == 0:
@@ -149,42 +154,6 @@ class PairEvaluator:
 
         preds = scores_np >= threshold
 
-        # ==============================
-        # CONFUSION MATRIX
-        # ==============================
-        cm = confusion_matrix(
-            labels_np,
-            preds,
-            labels=[0, 1]
-        )
-        base_name = os.path.splitext(
-            os.path.basename(self.output_csv)
-        )[0]
-
-        cm_dir = os.path.dirname(self.output_csv)
-        cm_path = os.path.join(
-            cm_dir,
-            f"{base_name}_confusion_matrix.png"
-        )
-
-        disp = ConfusionMatrixDisplay(
-            confusion_matrix=cm,
-            display_labels=[
-                "Different",
-                "Same"
-            ]
-        )
-
-        disp.plot(
-            cmap="Blues",
-            values_format="d"
-        )
-
-        plt.title("Pair Verification Confusion Matrix")
-        plt.tight_layout()
-        plt.savefig(cm_path, dpi=300)
-        plt.close()
-
         tp = np.sum((preds == 1) & (labels_np == 1))
         tn = np.sum((preds == 0) & (labels_np == 0))
         fp = np.sum((preds == 1) & (labels_np == 0))
@@ -195,6 +164,32 @@ class PairEvaluator:
 
         os.makedirs(os.path.dirname(self.output_csv), exist_ok=True)
 
+        base_name = os.path.splitext(
+            os.path.basename(self.output_csv)
+        )[0]
+
+        cm_path = os.path.join(
+            os.path.dirname(self.output_csv),
+            f"{base_name}_confusion_matrix.png"
+        )
+
+        cm = confusion_matrix(
+            labels_np,
+            preds,
+            labels=[0, 1]
+        )
+
+        disp = ConfusionMatrixDisplay(
+            confusion_matrix=cm,
+            display_labels=["Different", "Same"]
+        )
+
+        disp.plot(cmap="Blues", values_format="d")
+        plt.title("InsightFace Buffalo_L Confusion Matrix")
+        plt.tight_layout()
+        plt.savefig(cm_path, dpi=300)
+        plt.close()
+
         with open(self.output_csv, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
 
@@ -202,6 +197,7 @@ class PairEvaluator:
                 "total_pairs",
                 "valid_pairs",
                 "missing_pairs",
+                "failed_pairs",
                 "accuracy",
                 "auc",
                 "eer",
@@ -219,6 +215,7 @@ class PairEvaluator:
                 len(pairs),
                 len(labels),
                 missing,
+                failed,
                 accuracy,
                 auc,
                 eer,
@@ -234,11 +231,12 @@ class PairEvaluator:
 
         print()
         print("=" * 70)
-        print("PAIR VERIFICATION RESULT")
+        print("INSIGHTFACE BUFFALO_L PAIR VERIFICATION RESULT")
         print("=" * 70)
         print(f"Total pairs      : {len(pairs)}")
         print(f"Valid pairs      : {len(labels)}")
         print(f"Missing pairs    : {missing}")
+        print(f"Failed pairs     : {failed}")
         print(f"Accuracy         : {accuracy * 100:.2f}%")
         print(f"AUC              : {auc:.4f}")
         print(f"EER              : {eer * 100:.2f}%")
@@ -257,14 +255,16 @@ def main():
 
     parser.add_argument("--root_dir", required=True)
     parser.add_argument("--pairs_file", required=True)
-    parser.add_argument("--output_csv", default="outputs/evaluation/pair_eval.csv")
+    parser.add_argument("--output_csv", default="outputs/evaluation/insightface_pair_eval.csv")
+    parser.add_argument("--ctx_id", type=int, default=-1)
 
     args = parser.parse_args()
 
-    evaluator = PairEvaluator(
+    evaluator = InsightFacePairEvaluator(
         root_dir=args.root_dir,
         pairs_file=args.pairs_file,
-        output_csv=args.output_csv
+        output_csv=args.output_csv,
+        ctx_id=args.ctx_id
     )
 
     evaluator.evaluate()
