@@ -876,6 +876,56 @@ def get_realtime_system():
 realtime_system = None
 
 
+@app.get("/api/attendance/current-face")
+def get_current_face():
+    """Return the person currently being recognized in the live camera feed."""
+    try:
+        system = get_realtime_system()
+        # Snapshot active streams without holding the lock long
+        with system.stream_lock:
+            streams_snapshot = list(system.active_streams.values())
+
+        best_match = None
+        for stream_info in streams_snapshot:
+            worker = stream_info.get("worker")
+            if not worker:
+                continue
+            data = worker.get_draw_data()  # thread-safe via worker.lock
+            for item in data:
+                label = item.get("label", "")
+                # Only show recognized employees (not Unknown/SPOOF/Error/empty)
+                if not label or label in ("Unknown", "Error") or "SPOOF" in label:
+                    continue
+                # Parse label format: "Name - STATUS ..." or "Name - COOLDOWN (Xs)"
+                parts = label.split(" - ", 1)
+                if len(parts) == 2:
+                    name = parts[0].strip()
+                    status_raw = parts[1].strip()
+                    if "SUCCESS" in status_raw:
+                        status = "SUCCESS"
+                    elif "LATE" in status_raw:
+                        status = "LATE"
+                    elif "COOLDOWN" in status_raw:
+                        status = "COOLDOWN"
+                    else:
+                        status = "UNKNOWN"
+                    best_match = {
+                        "full_name": name,
+                        "status": status,
+                        "label": label,
+                        "liveness_score": round(float(item.get("liveness_score") or 0.0), 4)
+                    }
+                    break
+            if best_match:
+                break
+
+        return {"data": best_match}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"data": None, "error": str(e)}
+
+
 @app.get("/api/attendance/stream")
 def get_attendance_stream(camera_id: Optional[str] = None):
     """Stream camera feed with real-time recognition."""
