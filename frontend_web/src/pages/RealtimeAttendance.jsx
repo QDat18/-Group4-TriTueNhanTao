@@ -117,6 +117,13 @@ function LivenessBar({ value }) {
 }
 
 // ── Portrait thumbnail ─────────────────────────────────────────────────────────
+function getLocalDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function Portrait({ empId, name, size = 40, backend = 'http://localhost:8000' }) {
   return (
     <img
@@ -174,16 +181,16 @@ export default function RealtimeAttendance() {
 
   // Load logs + stats
   const loadData = () => {
+    const today = getLocalDateKey();
     Promise.all([
-      getAttendanceLogs({ limit: 20 }),
+      getAttendanceLogs({ date: today, limit: 20 }),
       getReportSummary('day'),
     ]).then(([logsRes, summaryRes]) => {
       const fetched = logsRes.data || [];
       setLogs(fetched);
 
       const totalEmp = (summaryRes && !summaryRes.error) ? (summaryRes.total_employees || 10) : 10;
-      const today = new Date().toISOString().slice(0, 10);
-      const todayLogs = fetched.filter(l => l.check_time?.startsWith(today));
+      const todayLogs = fetched;
 
       const presentIds = new Set(todayLogs.filter(l => ['SUCCESS', 'LATE', 'CHECK_OUT', 'EARLY_LEAVE'].includes(l.status)).map(l => l.employee_id));
       const lateIds = new Set(todayLogs.filter(l => l.status === 'LATE').map(l => l.employee_id));

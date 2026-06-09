@@ -13,7 +13,31 @@ class AttendanceService:
         self.employee_ids_list = []
         self.faiss_index = None
         self.last_check_in_cache = {}
+        self.current_local_date = self._local_now().date()
         self.load_embeddings()
+
+    def _local_now(self):
+        return datetime.now(timezone.utc) + timedelta(hours=7)
+
+    def _local_day_bounds_utc(self, local_dt=None):
+        local_dt = local_dt or self._local_now()
+        start_local = local_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_local = start_local + timedelta(days=1)
+        return (
+            (start_local - timedelta(hours=7)).isoformat(),
+            (end_local - timedelta(hours=7)).isoformat()
+        )
+
+    def _reset_daily_state_if_needed(self):
+        today = self._local_now().date()
+        if today != self.current_local_date:
+            self.last_check_in_cache.clear()
+            self.current_local_date = today
+            print(f"[AttendanceService] Reset daily attendance cache for {today}.")
+
+    def _same_local_day(self, utc_naive_dt, local_dt=None):
+        local_dt = local_dt or self._local_now()
+        return (utc_naive_dt + timedelta(hours=7)).date() == local_dt.date()
 
     def load_embeddings(self):
         response = (
@@ -87,20 +111,28 @@ class AttendanceService:
         }
 
     def check_cooldown(self, employee_id):
+        self._reset_daily_state_if_needed()
         now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        now_local = self._local_now()
         if employee_id in self.last_check_in_cache:
             last_time = self.last_check_in_cache[employee_id]
-            delta = now_utc - last_time
-            remaining = config.COOLDOWN_SECONDS - delta.total_seconds()
-            if remaining > 0:
-                return False, last_time, remaining
+            if self._same_local_day(last_time, now_local):
+                delta = now_utc - last_time
+                remaining = config.COOLDOWN_SECONDS - delta.total_seconds()
+                if remaining > 0:
+                    return False, last_time, remaining
+            else:
+                self.last_check_in_cache.pop(employee_id, None)
 
         try:
+            start_utc, end_utc = self._local_day_bounds_utc(now_local)
             response = (
                 supabase
                 .table("attendance_logs")
                 .select("check_time")
                 .eq("employee_id", employee_id)
+                .gte("check_time", start_utc)
+                .lt("check_time", end_utc)
                 .order("check_time", desc=True)
                 .limit(1)
                 .execute()
@@ -124,14 +156,14 @@ class AttendanceService:
     def _get_today_checkins(self, employee_id):
         """Lấy số lần chấm công hôm nay của nhân viên."""
         try:
-            now_utc = datetime.now(timezone.utc)
-            today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(hours=7)
+            start_utc, end_utc = self._local_day_bounds_utc()
             response = (
                 supabase
                 .table("attendance_logs")
                 .select("check_time, status")
                 .eq("employee_id", employee_id)
-                .gte("check_time", today_start.isoformat())
+                .gte("check_time", start_utc)
+                .lt("check_time", end_utc)
                 .order("check_time", desc=False)
                 .execute()
             )
@@ -141,6 +173,8 @@ class AttendanceService:
 
     def save_attendance(self, employee_id, similarity, camera_id="CAM001"):
         from src.config import WORK_START_TIME, WORK_END_TIME, COOLDOWN_SECONDS
+
+        self._reset_daily_state_if_needed()
 
         # 1. Get today's logs for the employee (UTC+7)
         today_logs = self._get_today_checkins(employee_id)

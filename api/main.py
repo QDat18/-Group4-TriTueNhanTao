@@ -66,6 +66,16 @@ def get_cached_data(cache_key):
 def set_cached_data(cache_key, val, ttl_seconds=3.0):
     query_cache[cache_key] = (val, time.time() + ttl_seconds)
 
+def local_date_bounds_utc(date_str: str):
+    local_start = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    utc_start = local_start - timedelta(hours=7)
+    utc_end = utc_start + timedelta(days=1)
+    return utc_start.isoformat(), utc_end.isoformat()
+
+def today_local_bounds_utc():
+    today = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime("%Y-%m-%d")
+    return local_date_bounds_utc(today)
+
 # Ensure portrait directory exists
 os.makedirs("dataset/in-house", exist_ok=True)
 
@@ -153,11 +163,12 @@ def get_dashboard_stats():
         total_employees = emp_resp.count or len(emp_resp.data)
 
         # Today's attendance
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        today_start, today_end = today_local_bounds_utc()
         att_resp = (
             supabase.table("attendance_logs")
             .select("employee_id, check_time, status")
             .gte("check_time", today_start)
+            .lt("check_time", today_end)
             .execute()
         )
 
@@ -240,11 +251,12 @@ def get_department_ranking():
             dept_map[dept]["total"] += 1
 
         # Today's attendance
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        today_start, today_end = today_local_bounds_utc()
         att_resp = (
             supabase.table("attendance_logs")
             .select("employee_id")
             .gte("check_time", today_start)
+            .lt("check_time", today_end)
             .eq("status", "SUCCESS")
             .execute()
         )
@@ -432,9 +444,8 @@ def get_attendance_logs(
             query = query.eq("employee_id", employee_id)
 
         if date:
-            date_start = f"{date}T00:00:00+00:00"
-            date_end = f"{date}T23:59:59+00:00"
-            query = query.gte("check_time", date_start).lte("check_time", date_end)
+            date_start, date_end = local_date_bounds_utc(date)
+            query = query.gte("check_time", date_start).lt("check_time", date_end)
 
         resp = query.order("check_time", desc=True).limit(limit).execute()
 
@@ -644,11 +655,12 @@ def get_report_by_department():
     try:
         emp_resp = supabase.table("employees").select("employee_id, department").eq("is_active", True).execute()
 
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        today_start, today_end = today_local_bounds_utc()
         att_resp = (
             supabase.table("attendance_logs")
             .select("employee_id")
             .gte("check_time", today_start)
+            .lt("check_time", today_end)
             .eq("status", "SUCCESS")
             .execute()
         )
@@ -983,7 +995,11 @@ def get_current_face():
                 if len(parts) == 2:
                     name = parts[0].strip()
                     status_raw = parts[1].strip()
-                    if "SUCCESS" in status_raw:
+                    if "REJECTED_CHECK_IN" in status_raw:
+                        status = "REJECTED_CHECK_IN"
+                    elif "REJECTED_CHECK_OUT" in status_raw:
+                        status = "REJECTED_CHECK_OUT"
+                    elif "SUCCESS" in status_raw:
                         status = "SUCCESS"
                     elif "LATE" in status_raw:
                         status = "LATE"
@@ -991,10 +1007,6 @@ def get_current_face():
                         status = "CHECK_OUT"
                     elif "EARLY_LEAVE" in status_raw:
                         status = "EARLY_LEAVE"
-                    elif "REJECTED_CHECK_IN" in status_raw:
-                        status = "REJECTED_CHECK_IN"
-                    elif "REJECTED_CHECK_OUT" in status_raw:
-                        status = "REJECTED_CHECK_OUT"
                     elif "COMPLETED" in status_raw:
                         status = "COMPLETED"
                     elif "COOLDOWN" in status_raw:
