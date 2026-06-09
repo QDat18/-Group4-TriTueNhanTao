@@ -6,6 +6,32 @@ from src.database.supabase_client import supabase
 from src import config
 
 
+def parse_isoformat(dt_str: str) -> datetime:
+    """Safely parse ISO datetime strings from Supabase, handling variable fractional second lengths."""
+    dt_str = dt_str.replace("Z", "+00:00")
+    if "." in dt_str:
+        # Find timezone offset index
+        tz_idx = -1
+        for i in range(len(dt_str) - 1, 10, -1):
+            if dt_str[i] in ("+", "-"):
+                tz_idx = i
+                break
+        
+        if tz_idx != -1:
+            base = dt_str[:tz_idx]
+            tz = dt_str[tz_idx:]
+        else:
+            base = dt_str
+            tz = ""
+            
+        parts = base.split(".")
+        if len(parts) == 2:
+            secs, frac = parts[0], parts[1]
+            frac = (frac + "000000")[:6]
+            dt_str = f"{secs}.{frac}{tz}"
+            
+    return datetime.fromisoformat(dt_str)
+
 class AttendanceService:
 
     def __init__(self):
@@ -142,8 +168,7 @@ class AttendanceService:
                 self.last_check_in_cache[employee_id] = datetime.min
                 return True, None, 0
 
-            check_time_str = response.data[0]["check_time"].replace("Z", "+00:00")
-            last_time = datetime.fromisoformat(check_time_str).replace(tzinfo=None)
+            last_time = parse_isoformat(response.data[0]["check_time"]).replace(tzinfo=None)
             delta = now_utc - last_time
             remaining = config.COOLDOWN_SECONDS - delta.total_seconds()
 
@@ -260,8 +285,7 @@ class AttendanceService:
                     new_is_out = status in ("CHECK_OUT", "EARLY_LEAVE")
                     if last_was_in and new_is_out:
                         # Calculate time difference
-                        last_log_time_str = today_logs[-1]["check_time"].replace("Z", "+00:00")
-                        last_log_time = datetime.fromisoformat(last_log_time_str)
+                        last_log_time = parse_isoformat(today_logs[-1]["check_time"])
                         diff_seconds = (now_local - (last_log_time + timedelta(hours=7))).total_seconds()
                         if diff_seconds >= 15:
                             is_transition = True

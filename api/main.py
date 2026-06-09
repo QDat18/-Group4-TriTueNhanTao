@@ -66,6 +66,32 @@ def get_cached_data(cache_key):
 def set_cached_data(cache_key, val, ttl_seconds=3.0):
     query_cache[cache_key] = (val, time.time() + ttl_seconds)
 
+def parse_isoformat(dt_str: str) -> datetime:
+    """Safely parse ISO datetime strings from Supabase, handling variable fractional second lengths."""
+    dt_str = dt_str.replace("Z", "+00:00")
+    if "." in dt_str:
+        # Find timezone offset index
+        tz_idx = -1
+        for i in range(len(dt_str) - 1, 10, -1):
+            if dt_str[i] in ("+", "-"):
+                tz_idx = i
+                break
+        
+        if tz_idx != -1:
+            base = dt_str[:tz_idx]
+            tz = dt_str[tz_idx:]
+        else:
+            base = dt_str
+            tz = ""
+            
+        parts = base.split(".")
+        if len(parts) == 2:
+            secs, frac = parts[0], parts[1]
+            frac = (frac + "000000")[:6]
+            dt_str = f"{secs}.{frac}{tz}"
+            
+    return datetime.fromisoformat(dt_str)
+
 def local_date_bounds_utc(date_str: str):
     local_start = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     utc_start = local_start - timedelta(hours=7)
@@ -184,7 +210,7 @@ def get_dashboard_stats():
         late_count = 0
         for log in today_logs:
             if log["status"] == "SUCCESS":
-                check_time = datetime.fromisoformat(log["check_time"].replace("Z", "+00:00"))
+                check_time = parse_isoformat(log["check_time"])
                 # Convert to local time (UTC+7)
                 local_time = check_time + timedelta(hours=7)
                 if local_time.hour > 8 or (local_time.hour == 8 and local_time.minute > 30):
@@ -625,7 +651,7 @@ def get_report_summary(
                 daily_present[date].add(log["employee_id"])
 
                 # Check late
-                check_time = datetime.fromisoformat(log["check_time"].replace("Z", "+00:00"))
+                check_time = parse_isoformat(log["check_time"])
                 local_time = check_time + timedelta(hours=7)
                 if local_time.hour > 8 or (local_time.hour == 8 and local_time.minute > 30):
                     late_set.add(f"{date}_{log['employee_id']}")
