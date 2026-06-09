@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2, Database, Shield, Cpu, CheckCircle2, AlertCircle } from 'lucide-react';
-import { listEmbeddings, deleteEmbedding, rebuildEmbeddings } from '../api';
+import { listEmbeddings, deleteEmbedding, rebuildEmbeddings, getModelInfo } from '../api';
 
 export default function AISystem() {
   const [tab, setTab] = useState('embeddings');
@@ -8,11 +8,16 @@ export default function AISystem() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [modelInfo, setModelInfo] = useState(null);
+  const [selectedDs, setSelectedDs] = useState('LFW');
 
   const loadData = () => {
     setLoading(true);
-    listEmbeddings().then(r => {
-      setEmbeddings(r.data || []);
+    Promise.all([listEmbeddings(), getModelInfo()]).then(([embeddingsRes, modelInfoRes]) => {
+      setEmbeddings(embeddingsRes.data || []);
+      if (modelInfoRes && !modelInfoRes.error) {
+        setModelInfo(modelInfoRes);
+      }
       setLoading(false);
     });
   };
@@ -160,16 +165,17 @@ export default function AISystem() {
         <div>
           <div className="card" style={{ marginBottom: '1.25rem' }}>
             <div className="card-header"><span className="card-title"><Cpu size={16} /> Thông số mô hình nhận diện đang nạp</span></div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--accent-primary)' }}>arcface_vggface2_warmup.pth</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--accent-primary)' }}>{modelInfo?.model_name || 'arcface_vggface2_warmup.pth'}</div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Kiến trúc Backbone: ResNet50 | Vector đặc trưng: 512 dimensions | Huấn luyện trên tập: VGGFace2</p>
           </div>
 
+          <h4 style={{ marginBottom: '0.75rem', fontWeight: 600 }}>📋 Đánh giá trên tập AFDB Masked Face (Nhận diện đeo khẩu trang)</h4>
           <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
             {[
-              { label: 'Độ chính xác kiểm thử (Accuracy)', value: '97.3%', color: 'blue' },
-              { label: 'FAR (Tỷ lệ nhận nhầm người)', value: '0.01%', color: 'red' },
-              { label: 'FRR (Tỷ lệ từ chối đúng người)', value: '2.69%', color: 'yellow' },
-              { label: 'F1 Score tổng quát', value: '0.985', color: 'green' },
+              { label: 'Rank-1 Accuracy', value: modelInfo?.metrics?.rank1 || '—', color: 'blue' },
+              { label: 'Rank-5 Accuracy', value: modelInfo?.metrics?.rank5 || '—', color: 'green' },
+              { label: 'Equal Error Rate (EER)', value: modelInfo?.metrics?.eer || '—', color: 'red' },
+              { label: 'Ngưỡng tối ưu EER', value: modelInfo?.metrics?.threshold || '—', color: 'yellow' },
             ].map(s => (
               <div className={`stat-card ${s.color}`} key={s.label} style={{ padding: '1.25rem' }}>
                 <div className="stat-value" style={{ fontSize: '1.8rem', fontWeight: 800 }}>{s.value}</div>
@@ -178,10 +184,82 @@ export default function AISystem() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => alert('Bắt đầu chạy quy trình tự động đánh giá mô hình trên tập dataset test...')}>▶️ Chạy Đánh Giá Độ Chính Xác</button>
-            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => alert('Đang xuất báo cáo đánh giá chi tiết (confusion matrix) dưới dạng CSV/JSON...')}>📥 Xuất Báo Cáo Chẩn Đoán</button>
-          </div>
+          {modelInfo?.benchmarks && modelInfo.benchmarks.length > 0 && (
+            <div style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+              <h4 style={{ marginBottom: '0.75rem', fontWeight: 600 }}>📊 Kết quả kiểm thử trên các tập dữ liệu tiêu chuẩn (Benchmarks)</h4>
+              <table className="data-table" style={{ width: '100%', marginBottom: '1.5rem' }}>
+                <thead>
+                  <tr>
+                    <th>Dataset</th>
+                    <th>Số cặp (Pairs)</th>
+                    <th>Độ chính xác (Accuracy)</th>
+                    <th>AUC</th>
+                    <th>EER</th>
+                    <th>Ngưỡng tối ưu</th>
+                    <th>FAR (Nhận nhầm)</th>
+                    <th>FRR (Từ chối sai)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modelInfo.benchmarks.map(b => (
+                    <tr key={b.dataset}>
+                      <td><strong>{b.dataset}</strong></td>
+                      <td>{b.pairs}</td>
+                      <td style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{b.accuracy}</td>
+                      <td>{b.auc}</td>
+                      <td>{b.eer}</td>
+                      <td>{b.threshold}</td>
+                      <td>{b.far}</td>
+                      <td>{b.frr}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <h4 style={{ marginBottom: '0.75rem', fontWeight: 600 }}>📈 Biểu đồ Đánh giá Chi tiết (ROC & Confusion Matrix)</h4>
+              <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Chọn tập dữ liệu:</span>
+                <select 
+                  value={selectedDs} 
+                  onChange={(e) => setSelectedDs(e.target.value)}
+                  style={{
+                    padding: '0.4rem 1rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-color)',
+                    background: '#fff',
+                    outline: 'none',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <option value="LFW">LFW</option>
+                  <option value="CALFW">CALFW</option>
+                  <option value="CPLFW">CPLFW</option>
+                  <option value="AGEDB">AGEDB</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                <div className="card" style={{ padding: '1rem', textAlign: 'center' }}>
+                  <h5 style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Ma trận nhầm lẫn (Confusion Matrix)</h5>
+                  <img 
+                    src={`http://localhost:8000/outputs/evaluation/${selectedDs === 'AGEDB' ? 'agedb30_eval' : selectedDs.toLowerCase() + '_eval'}_confusion_matrix.png`} 
+                    alt={`${selectedDs} Confusion Matrix`}
+                    style={{ width: '100%', borderRadius: 'var(--radius-md)' }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                </div>
+                <div className="card" style={{ padding: '1rem', textAlign: 'center' }}>
+                  <h5 style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Đường cong ROC (ROC Curve)</h5>
+                  <img 
+                    src={`http://localhost:8000/outputs/evaluation/${selectedDs === 'AGEDB' ? 'agedb30_eval' : selectedDs.toLowerCase() + '_eval'}_roc_curve.png`} 
+                    alt={`${selectedDs} ROC Curve`}
+                    style={{ width: '100%', borderRadius: 'var(--radius-md)' }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

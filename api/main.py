@@ -121,6 +121,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount outputs directory to serve evaluation plots
+if os.path.exists("outputs"):
+    app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+
 
 # ════════════════════════════════════════
 # MODELS
@@ -950,7 +954,44 @@ def get_model_info():
             with open(report_path, "r", encoding="utf-8") as f:
                 report_content = f.read()
                 
-        return {"model_path": model_path, "model_name": model_name, "metrics": metrics, "report": report_content}
+        benchmarks = []
+        eval_dir = "outputs/evaluation"
+        dataset_mappings = {
+            "lfw_eval.csv": "LFW",
+            "calfw_eval.csv": "CALFW",
+            "cplfw_eval.csv": "CPLFW",
+            "agedb30_eval.csv": "AGEDB"
+        }
+        
+        if os.path.exists(eval_dir):
+            import csv
+            for csv_file, ds_name in dataset_mappings.items():
+                csv_path = os.path.join(eval_dir, csv_file)
+                if os.path.exists(csv_path):
+                    try:
+                        with open(csv_path, "r", encoding="utf-8") as f:
+                            reader = csv.DictReader(f)
+                            for row in reader:
+                                benchmarks.append({
+                                    "dataset": ds_name,
+                                    "pairs": int(row.get("valid_pairs", 6000)),
+                                    "accuracy": f"{float(row.get('accuracy', 0)) * 100:.2f}%",
+                                    "auc": f"{float(row.get('auc', 0)):.4f}",
+                                    "eer": f"{float(row.get('eer', 0)) * 100:.2f}%",
+                                    "threshold": f"{float(row.get('best_threshold', 0)):.4f}",
+                                    "far": f"{float(row.get('far', 0)) * 100:.2f}%",
+                                    "frr": f"{float(row.get('frr', 0)) * 100:.2f}%"
+                                })
+                    except Exception as ce:
+                        print(f"Error parsing {csv_file}: {ce}")
+                        
+        return {
+            "model_path": model_path,
+            "model_name": model_name,
+            "metrics": metrics,
+            "report": report_content,
+            "benchmarks": benchmarks
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

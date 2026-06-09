@@ -1,7 +1,7 @@
 """Employees page - CRUD operations for employee management."""
 
 import streamlit as st
-from api_client import list_employees, create_employee, update_employee, delete_employee, get_employee
+from api_client import list_employees, create_employee, update_employee, delete_employee, get_employee, delete_embedding, delete_portraits
 
 
 def render():
@@ -89,6 +89,8 @@ def render():
                         st.session_state["editing"] = emp["employee_id"]
                 with bc2:
                     if st.button("🗑️", key=f"del_{emp['employee_id']}", help="Xóa"):
+                        delete_embedding(emp["employee_id"])
+                        delete_portraits(emp["employee_id"])
                         delete_employee(emp["employee_id"])
                         st.rerun()
 

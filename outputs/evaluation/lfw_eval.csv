@@ -1,2 +1,2 @@
-total_pairs,valid_pairs,missing_pairs,accuracy,auc,eer,best_threshold,eer_threshold,far,frr,tp,tn,fp,fn
-6000,6000,0,0.867,0.9282042222222222,0.1438333333333333,0.10200000000000009,0.08020559698343277,0.084,0.182,2454,2748,252,546
+total_pairs,valid_pairs,missing_pairs,failed_pairs,accuracy,auc,eer,best_threshold,eer_threshold,far,frr,tp,tn,fp,fn
+6000,6000,0,0,0.867,0.9281952222222222,0.1428333333333333,0.10200000000000009,0.08061260730028152,0.084,0.182,2454,2748,252,546

@@ -127,3 +127,45 @@ class FaceRecognitionModel:
             embedding = self.model(image)
 
         return embedding.cpu()
+
+
+class MobileNetV2FaceEmbeddingNet(nn.Module):
+    """
+    Backbone trích xuất đặc trưng khuôn mặt sử dụng MobileNetV2 làm nền tảng,
+    chiếu lên vector embedding 512 chiều, chuẩn hóa BN và L2.
+    """
+
+    def __init__(self, embedding_size: int = 512, pretrained: bool = False) -> None:
+        super().__init__()
+
+        if pretrained:
+            weights = models.MobileNet_V2_Weights.DEFAULT
+        else:
+            weights = None
+
+        backbone = models.mobilenet_v2(weights=weights)
+
+        # Loại bỏ classifier của MobileNetV2
+        self.feature_extractor = backbone.features
+
+        # Global average pooling
+        self.pool = nn.AdaptiveAvgPool2d(1)
+
+        # Ánh xạ từ đặc trưng 1280 chiều của MobileNetV2 về 512 chiều (embedding)
+        self.embedding_layer = nn.Linear(1280, embedding_size)
+
+        # Batch Normalization giúp embedding ổn định hơn
+        self.bn = nn.BatchNorm1d(embedding_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        features = self.feature_extractor(x)
+        features = self.pool(features)
+        features = torch.flatten(features, 1)
+
+        embeddings = self.embedding_layer(features)
+        embeddings = self.bn(embeddings)
+
+        # L2 Normalization
+        embeddings = F.normalize(embeddings, p=2, dim=1)
+
+        return embeddings
