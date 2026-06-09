@@ -1,3 +1,13 @@
+---
+title: AIChamcong
+emoji: 🧑‍💼
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Hệ thống Chấm công Tự động bằng Nhận diện Khuôn mặt
 
 > Hệ thống chấm công tự động sử dụng camera thời gian thực, ứng dụng mô hình nhận diện khuôn mặt dựa trên InsightFace, ArcFace và iResNet-100 nhằm xác thực nhân viên và ghi nhận thời gian làm việc một cách nhanh chóng, chính xác và hạn chế gian lận.
