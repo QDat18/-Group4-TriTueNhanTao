@@ -394,15 +394,20 @@ def main() -> None:
         # Log to CSV
         logger.log({
             "epoch": epoch + 1,
+            "phase": "TRAIN",
+            "learning_rate": current_lr,
             "train_loss": train_loss,
             "train_accuracy": train_acc,
             "val_loss": val_loss,
             "val_accuracy": val_acc,
-            "lr": current_lr,
-            "grad_norm": grad_norm,
-            "epoch_duration_seconds": epoch_time,
+            "embedding_norm": emb_norm,
+            "gradient_norm": grad_norm,
             "train_batches": train_batches,
-            "val_batches": val_batches
+            "val_batches": val_batches,
+            "epoch_time_sec": epoch_time,
+            "device": str(device),
+            "gpu_memory_mb": 0.0,
+            "checkpoint_saved": "yes" if val_loss == best_val_loss else "no"
         })
 
     print(f"\n[SUCCESS] Training finished! Best checkpoint saved to {best_ckpt_path}")
