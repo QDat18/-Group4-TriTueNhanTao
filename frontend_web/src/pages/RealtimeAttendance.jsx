@@ -28,6 +28,11 @@ const STATUS_CONFIG = {
   LOW_CONF: { color: '#f97316', bg: '#fff7ed', border: '#fdba74', text: 'Độ tin cậy thấp', icon: 'low', type: 'warn' },
   COOLDOWN: { color: '#6366f1', bg: '#eef2ff', border: '#a5b4fc', text: 'Đã điểm danh', icon: 'cooldown', type: 'dup' },
   SPOOFING: { color: '#dc2626', bg: '#fef2f2', border: '#f87171', text: 'Phát hiện gian lận', icon: 'spoof', type: 'err' },
+  ABSENT: { color: '#ef4444', bg: '#fef2f2', border: '#fca5a5', text: 'Vắng mặt', icon: 'unknown', type: 'err' },
+  MISSING_CHECK_OUT: { color: '#f59e0b', bg: '#fffbeb', border: '#fcd34d', text: 'Quên check-out', icon: 'late', type: 'in' },
+  REJECTED_CHECK_IN: { color: '#ef4444', bg: '#fef2f2', border: '#fca5a5', text: 'Từ chối check-in (Quá giờ)', icon: 'unknown', type: 'err' },
+  REJECTED_CHECK_OUT: { color: '#ef4444', bg: '#fef2f2', border: '#fca5a5', text: 'Từ chối check-out (Chưa đến giờ)', icon: 'unknown', type: 'err' },
+  COMPLETED: { color: '#10b981', bg: '#ecfdf5', border: '#6ee7b7', text: 'Hoàn tất chấm công', icon: 'check-in', type: 'in' },
 };
 
 function StatusIcon({ status, size = 14 }) {
@@ -570,6 +575,21 @@ export default function RealtimeAttendance() {
               {currentFace.status === 'SPOOFING' && (
                 <div style={{ background: '#fef2f2', border: '1px solid #f87171', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 700, textAlign: 'center', width: '100%' }}>
                   🚨 CẢNH BÁO: Phát hiện ảnh chụp/video giả mạo!
+                </div>
+              )}
+              {currentFace.status === 'REJECTED_CHECK_IN' && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, textAlign: 'center', width: '100%' }}>
+                  ❌ Từ chối check-in: Đã quá thời gian quy định (sau 12:00)
+                </div>
+              )}
+              {currentFace.status === 'REJECTED_CHECK_OUT' && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, textAlign: 'center', width: '100%' }}>
+                  ❌ Từ chối check-out: Chưa đến thời gian quy định (trước 12:00)
+                </div>
+              )}
+              {currentFace.status === 'COMPLETED' && (
+                <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#047857', fontWeight: 600, textAlign: 'center', width: '100%' }}>
+                  ✅ Đã hoàn tất cả check-in và check-out hôm nay!
                 </div>
               )}
 

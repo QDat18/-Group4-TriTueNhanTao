@@ -987,6 +987,16 @@ def get_current_face():
                         status = "SUCCESS"
                     elif "LATE" in status_raw:
                         status = "LATE"
+                    elif "CHECK_OUT" in status_raw:
+                        status = "CHECK_OUT"
+                    elif "EARLY_LEAVE" in status_raw:
+                        status = "EARLY_LEAVE"
+                    elif "REJECTED_CHECK_IN" in status_raw:
+                        status = "REJECTED_CHECK_IN"
+                    elif "REJECTED_CHECK_OUT" in status_raw:
+                        status = "REJECTED_CHECK_OUT"
+                    elif "COMPLETED" in status_raw:
+                        status = "COMPLETED"
                     elif "COOLDOWN" in status_raw:
                         status = "COOLDOWN"
                     else:
@@ -995,7 +1005,8 @@ def get_current_face():
                         "full_name": name,
                         "status": status,
                         "label": label,
-                        "liveness_score": round(float(item.get("liveness_score") or 0.0), 4)
+                        "liveness_score": round(float(item.get("liveness_score") or 0.0), 4),
+                        "similarity": round(float(item.get("similarity") or 0.0), 4)
                     }
                     break
             if best_match:
@@ -1049,6 +1060,106 @@ def health_check():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
+def daily_attendance_scheduler():
+    import time
+    from datetime import datetime, timedelta, timezone
+
+    def get_seconds_until_midnight():
+        now_local = datetime.now(timezone.utc) + timedelta(hours=7)
+        target_time = now_local.replace(hour=23, minute=59, second=50, microsecond=0)
+        if now_local > target_time:
+            target_time += timedelta(days=1)
+        return (target_time - now_local).total_seconds()
+
+    while True:
+        sec = get_seconds_until_midnight()
+        print(f"[Daily Scheduler] Sleeping for {sec:.1f} seconds until 23:59:50...")
+        time.sleep(sec)
+        
+        try:
+            print("[Daily Scheduler] Running daily end-of-day attendance update...")
+            run_end_of_day_attendance_update()
+        except Exception as e:
+            print(f"[Daily Scheduler] Error running end-of-day update: {e}")
+        
+        time.sleep(60)
+
+def run_end_of_day_attendance_update():
+    from src.database.supabase_client import supabase
+    from datetime import datetime, timedelta, timezone
+
+    now_local = datetime.now(timezone.utc) + timedelta(hours=7)
+    start_of_day_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_of_day_local = now_local.replace(hour=23, minute=59, second=50, microsecond=0)
+
+    start_of_day_utc = (start_of_day_local - timedelta(hours=7)).isoformat()
+    end_of_day_utc = (end_of_day_local - timedelta(hours=7)).isoformat()
+
+    try:
+        emp_resp = supabase.table("employees").select("employee_id").eq("is_active", True).execute()
+        active_employees = [e["employee_id"] for e in emp_resp.data]
+    except Exception as e:
+        print(f"[Daily Scheduler] Error fetching active employees: {e}")
+        return
+
+    if not active_employees:
+        return
+
+    try:
+        logs_resp = (
+            supabase.table("attendance_logs")
+            .select("employee_id, status")
+            .gte("check_time", start_of_day_utc)
+            .lte("check_time", end_of_day_utc)
+            .execute()
+        )
+        logs_today = logs_resp.data
+    except Exception as e:
+        print(f"[Daily Scheduler] Error fetching today's logs: {e}")
+        return
+
+    emp_logs = {}
+    for log in logs_today:
+        eid = log["employee_id"]
+        status = log["status"]
+        if eid not in emp_logs:
+            emp_logs[eid] = []
+        emp_logs[eid].append(status)
+
+    for eid in active_employees:
+        statuses = emp_logs.get(eid, [])
+        if "ABSENT" in statuses or "MISSING_CHECK_OUT" in statuses:
+            continue
+            
+        has_in = any(s in ("SUCCESS", "LATE") for s in statuses)
+        has_out = any(s in ("CHECK_OUT", "EARLY_LEAVE") for s in statuses)
+
+        payload = None
+        if not has_in and not has_out:
+            payload = {
+                "employee_id": eid,
+                "status": "ABSENT",
+                "similarity": 0.0,
+                "camera_id": "SYSTEM",
+                "check_time": end_of_day_utc
+            }
+        elif has_in and not has_out:
+            payload = {
+                "employee_id": eid,
+                "status": "MISSING_CHECK_OUT",
+                "similarity": 0.0,
+                "camera_id": "SYSTEM",
+                "check_time": end_of_day_utc
+            }
+
+        if payload:
+            print(f"[Daily Scheduler] Inserting {payload['status']} for employee {eid}")
+            try:
+                supabase.table("attendance_logs").insert(payload).execute()
+            except Exception as e:
+                print(f"[Daily Scheduler] Error inserting log for {eid}: {e}")
+
+
 @app.on_event("startup")
 def startup_event():
     """Pre-load RealtimeRecognition system on startup to avoid multiple redundant loads on concurrent initial requests."""
@@ -1058,6 +1169,11 @@ def startup_event():
         print("[STARTUP] Realtime Recognition Model loaded successfully.\n")
     except Exception as e:
         print(f"[STARTUP] ERROR: Failed to pre-load model on startup: {e}\n")
+
+    import threading
+    t = threading.Thread(target=daily_attendance_scheduler, daemon=True)
+    t.start()
+    print("[STARTUP] Daily end-of-day attendance scheduler thread started.")
 
 
 if __name__ == "__main__":

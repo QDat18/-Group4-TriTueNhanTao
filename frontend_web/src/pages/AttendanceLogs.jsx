@@ -19,13 +19,77 @@ function normalizeStatus(status) {
 
   if (['SUCCESS', 'OK', 'CHECKED_IN', 'PRESENT'].includes(raw)) {
     return {
-      label: 'Thành công',
+      label: 'Vào đúng giờ',
       className: 'badge-success',
       icon: <CheckCircle2 size={13} />
     };
   }
 
-  if (['SPOOF', 'FAKE', 'LIVENESS_FAIL'].includes(raw)) {
+  if (raw === 'LATE') {
+    return {
+      label: 'Vào muộn',
+      className: 'badge-warning',
+      icon: <AlertTriangle size={13} />
+    };
+  }
+
+  if (raw === 'CHECK_OUT') {
+    return {
+      label: 'Ra đúng giờ',
+      className: 'badge-success',
+      icon: <CheckCircle2 size={13} />
+    };
+  }
+
+  if (raw === 'EARLY_LEAVE') {
+    return {
+      label: 'Về sớm',
+      className: 'badge-warning',
+      icon: <AlertTriangle size={13} />
+    };
+  }
+
+  if (raw === 'ABSENT') {
+    return {
+      label: 'Vắng mặt',
+      className: 'badge-danger',
+      icon: <XCircle size={13} />
+    };
+  }
+
+  if (raw === 'MISSING_CHECK_OUT') {
+    return {
+      label: 'Quên check-out',
+      className: 'badge-danger',
+      icon: <XCircle size={13} />
+    };
+  }
+
+  if (raw === 'REJECTED_CHECK_IN') {
+    return {
+      label: 'Từ chối check-in',
+      className: 'badge-danger',
+      icon: <XCircle size={13} />
+    };
+  }
+
+  if (raw === 'REJECTED_CHECK_OUT') {
+    return {
+      label: 'Từ chối check-out',
+      className: 'badge-danger',
+      icon: <XCircle size={13} />
+    };
+  }
+
+  if (raw === 'COMPLETED') {
+    return {
+      label: 'Đã hoàn tất',
+      className: 'badge-success',
+      icon: <CheckCircle2 size={13} />
+    };
+  }
+
+  if (['SPOOF', 'FAKE', 'LIVENESS_FAIL', 'SPOOFING'].includes(raw)) {
     return {
       label: 'Từ chối - nghi giả mạo',
       className: 'badge-danger',
@@ -56,14 +120,38 @@ function buildReason(log) {
   const status = String(log.status || '').toUpperCase();
 
   if (status === 'SUCCESS') {
-    return 'Đã ghi nhận chấm công thành công.';
+    return 'Đã ghi nhận vào làm đúng giờ.';
+  }
+  if (status === 'LATE') {
+    return 'Vào muộn so với giờ quy định.';
+  }
+  if (status === 'CHECK_OUT') {
+    return 'Đã ghi nhận ra về đúng giờ.';
+  }
+  if (status === 'EARLY_LEAVE') {
+    return 'Ra về sớm so với giờ quy định.';
+  }
+  if (status === 'ABSENT') {
+    return 'Vắng mặt (không có dữ liệu quét trong ngày).';
+  }
+  if (status === 'MISSING_CHECK_OUT') {
+    return 'Quên check-out (hệ thống tự động cập nhật cuối ngày).';
+  }
+  if (status === 'REJECTED_CHECK_IN') {
+    return 'Từ chối check-in (đã quá thời gian check-in).';
+  }
+  if (status === 'REJECTED_CHECK_OUT') {
+    return 'Từ chối check-out (chưa đến thời gian check-out).';
+  }
+  if (status === 'COMPLETED') {
+    return 'Đã hoàn tất chấm công hôm nay.';
   }
 
   if (['UNKNOWN', 'NOT_FOUND', 'LOW_SIMILARITY'].includes(status)) {
     return 'Không đủ độ tương đồng hoặc chưa có vector khuôn mặt.';
   }
 
-  if (['SPOOF', 'FAKE', 'LIVENESS_FAIL'].includes(status)) {
+  if (['SPOOF', 'FAKE', 'LIVENESS_FAIL', 'SPOOFING'].includes(status)) {
     return 'Không đạt kiểm tra chống giả mạo/liveness.';
   }
 

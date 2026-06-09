@@ -143,6 +143,7 @@ class InferenceWorker:
                 color = (0, 165, 255)
                 label = "Unknown"
                 liveness_score = 0.0
+                similarity = 0.0
 
                 liveness_res = (
                     self.system
@@ -191,15 +192,31 @@ class InferenceWorker:
                                 )
 
                                 if res["success"]:
-                                    if res["status"] == "LATE":
-                                        color = (0, 165, 255)
-                                        label = (
-                                            f"{full_name} - "
-                                            f"LATE (+{res['late_minutes']}m)"
-                                        )
-                                    else:
+                                    status = res["status"]
+                                    if status == "SUCCESS":
                                         color = (0, 255, 0)
                                         label = f"{full_name} - SUCCESS"
+                                    elif status == "LATE":
+                                        color = (0, 165, 255)
+                                        label = f"{full_name} - LATE (+{res['late_minutes']}m)"
+                                    elif status == "CHECK_OUT":
+                                        color = (255, 0, 0)
+                                        label = f"{full_name} - CHECK_OUT"
+                                    elif status == "EARLY_LEAVE":
+                                        color = (0, 165, 255)
+                                        label = f"{full_name} - EARLY_LEAVE (-{res['early_minutes']}m)"
+                                    elif status == "REJECTED_CHECK_IN":
+                                        color = (0, 0, 255)
+                                        label = f"{full_name} - REJECTED_CHECK_IN"
+                                    elif status == "REJECTED_CHECK_OUT":
+                                        color = (0, 0, 255)
+                                        label = f"{full_name} - REJECTED_CHECK_OUT"
+                                    elif status == "COMPLETED":
+                                        color = (0, 255, 0)
+                                        label = f"{full_name} - COMPLETED"
+                                    else:
+                                        color = (0, 255, 0)
+                                        label = f"{full_name} - {status}"
                                 else:
                                     color = (0, 255, 255)
                                     label = (
@@ -219,7 +236,8 @@ class InferenceWorker:
                     "bbox": (x1, y1, x2, y2),
                     "color": color,
                     "label": label,
-                    "liveness_score": liveness_score
+                    "liveness_score": liveness_score,
+                    "similarity": similarity
                 })
 
             with self.lock:
@@ -384,15 +402,31 @@ class RealtimeRecognition:
                                 )
 
                                 if res["success"]:
-                                    if res["status"] == "LATE":
-                                        color = (0, 165, 255)
-                                        label = (
-                                            f"{full_name} - "
-                                            f"LATE (+{res['late_minutes']}m)"
-                                        )
-                                    else:
+                                    status = res["status"]
+                                    if status == "SUCCESS":
                                         color = (0, 255, 0)
                                         label = f"{full_name} - SUCCESS"
+                                    elif status == "LATE":
+                                        color = (0, 165, 255)
+                                        label = f"{full_name} - LATE (+{res['late_minutes']}m)"
+                                    elif status == "CHECK_OUT":
+                                        color = (255, 0, 0)
+                                        label = f"{full_name} - CHECK_OUT"
+                                    elif status == "EARLY_LEAVE":
+                                        color = (0, 165, 255)
+                                        label = f"{full_name} - EARLY_LEAVE (-{res['early_minutes']}m)"
+                                    elif status == "REJECTED_CHECK_IN":
+                                        color = (0, 0, 255)
+                                        label = f"{full_name} - REJECTED_CHECK_IN"
+                                    elif status == "REJECTED_CHECK_OUT":
+                                        color = (0, 0, 255)
+                                        label = f"{full_name} - REJECTED_CHECK_OUT"
+                                    elif status == "COMPLETED":
+                                        color = (0, 255, 0)
+                                        label = f"{full_name} - COMPLETED"
+                                    else:
+                                        color = (0, 255, 0)
+                                        label = f"{full_name} - {status}"
                                 else:
                                     color = (0, 255, 255)
                                     label = (

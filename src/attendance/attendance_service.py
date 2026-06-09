@@ -140,68 +140,120 @@ class AttendanceService:
             return []
 
     def save_attendance(self, employee_id, similarity, camera_id="CAM001"):
-        allowed, last_time, remaining = self.check_cooldown(employee_id)
-        if not allowed:
-            local_last = (last_time or datetime.now(timezone.utc).replace(tzinfo=None)) + timedelta(hours=7)
-            return {
-                "success": False,
-                "reason": "COOLDOWN",
-                "last_time": local_last.strftime("%H:%M:%S"),
-                "remaining": int(max(0, remaining))
-            }
+        from src.config import WORK_START_TIME, WORK_END_TIME, COOLDOWN_SECONDS
 
-        from src.config import WORK_START_TIME, WORK_END_TIME, ALLOW_LATE_MINUTES, ALLOW_EARLY_MINUTES
+        # 1. Get today's logs for the employee (UTC+7)
+        today_logs = self._get_today_checkins(employee_id)
+        
+        # Check if they have checked in or checked out today
+        has_checked_in = any(l.get("status") in ("SUCCESS", "LATE") for l in today_logs)
+        has_checked_out = any(l.get("status") in ("CHECK_OUT", "EARLY_LEAVE") for l in today_logs)
 
-        # Thời gian hiện tại theo UTC+7
+        # Current local time (UTC+7)
         now_local = datetime.now(timezone.utc) + timedelta(hours=7)
+        now_time = now_local.time()
 
-        # Parse giờ vào / ra
-        start_h, start_m = map(int, WORK_START_TIME.split(":"))
+        # Parse WORK_START_TIME and WORK_END_TIME
+        try:
+            start_h, start_m = map(int, WORK_START_TIME.split(":"))
+            work_start_time = datetime.strptime(WORK_START_TIME, "%H:%M").time()
+        except Exception:
+            start_h, start_m = 8, 0
+            work_start_time = datetime.strptime("08:00", "%H:%M").time()
+
         try:
             end_h, end_m = map(int, WORK_END_TIME.split(":"))
+            work_end_time = datetime.strptime(WORK_END_TIME, "%H:%M").time()
         except Exception:
             end_h, end_m = 17, 30
+            work_end_time = datetime.strptime("17:30", "%H:%M").time()
 
-        work_start  = now_local.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
-        work_end    = now_local.replace(hour=end_h,   minute=end_m,   second=0, microsecond=0)
-        late_limit  = work_start + timedelta(minutes=ALLOW_LATE_MINUTES)
-        early_limit = work_end   - timedelta(minutes=ALLOW_EARLY_MINUTES)
+        work_start = now_local.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+        work_end = now_local.replace(hour=end_h, minute=end_m, second=0, microsecond=0)
 
-        # Đếm số lần đã chấm công hôm nay
-        today_logs = self._get_today_checkins(employee_id)
-        checkin_count = len(today_logs)
+        midday_time = datetime.strptime("12:00", "%H:%M").time()
 
+        # Determine status and metrics
         status = "SUCCESS"
         late_minutes = 0
         early_minutes = 0
+        should_save = True
 
-        if checkin_count == 0:
-            # ── Lần đầu: VÀO LÀM ──────────────────────────────
-            if now_local > late_limit:
-                status = "LATE"
-                late_minutes = int((now_local - late_limit).total_seconds() / 60)
+        if has_checked_in and has_checked_out:
+            # Rule 7: Đã check-in và đã check-out
+            status = "COMPLETED"
+            should_save = False
+        elif has_checked_in and not has_checked_out:
+            # Đã check-in, chưa check-out
+            if now_time < midday_time:
+                # Rule 4: Từ chối check-out
+                status = "REJECTED_CHECK_OUT"
+                should_save = False
             else:
-                status = "SUCCESS"
+                if now_time < work_end_time:
+                    # Rule 5: Check-out - Về sớm
+                    status = "EARLY_LEAVE"
+                    early_minutes = int((work_end - now_local).total_seconds() / 60)
+                else:
+                    # Rule 6: Check-out - Ra đúng giờ
+                    status = "CHECK_OUT"
         else:
-            # ── Lần 2 trở đi: RA VỀ ───────────────────────────
-            if now_local < early_limit:
-                status = "EARLY_LEAVE"
-                early_minutes = int((early_limit - now_local).total_seconds() / 60)
+            # Chưa check-in
+            if now_time < midday_time:
+                if now_time <= work_start_time:
+                    # Rule 1: Check-in - Đúng giờ
+                    status = "SUCCESS"
+                else:
+                    # Rule 2: Check-in - Vào muộn
+                    status = "LATE"
+                    late_minutes = int((now_local - work_start).total_seconds() / 60)
             else:
-                status = "CHECK_OUT"
+                # Rule 3: Từ chối check-in
+                status = "REJECTED_CHECK_IN"
+                should_save = False
 
-        payload = {
-            "employee_id": employee_id,
-            "similarity":  similarity,
-            "camera_id":   camera_id,
-            "status":      status
-        }
+        # 2. Check Cooldown for DB-saving actions
+        if should_save:
+            # Check cooldown against last scan
+            allowed, last_time, remaining = self.check_cooldown(employee_id)
+            if not allowed:
+                # Intelligent bypass: If last log was check-in (SUCCESS/LATE) and new status is check-out (CHECK_OUT/EARLY_LEAVE),
+                # allow it as long as at least 15 seconds have passed (prevent camera double-triggering).
+                is_transition = False
+                if len(today_logs) > 0:
+                    last_status = today_logs[-1].get("status")
+                    last_was_in = last_status in ("SUCCESS", "LATE")
+                    new_is_out = status in ("CHECK_OUT", "EARLY_LEAVE")
+                    if last_was_in and new_is_out:
+                        # Calculate time difference
+                        last_log_time_str = today_logs[-1]["check_time"].replace("Z", "+00:00")
+                        last_log_time = datetime.fromisoformat(last_log_time_str)
+                        diff_seconds = (now_local - (last_log_time + timedelta(hours=7))).total_seconds()
+                        if diff_seconds >= 15:
+                            is_transition = True
 
-        try:
-            supabase.table("attendance_logs").insert(payload).execute()
-            self.last_check_in_cache[employee_id] = datetime.now(timezone.utc).replace(tzinfo=None)
-        except Exception as e:
-            print(f"Error saving attendance to DB: {e}")
+                if not is_transition:
+                    local_last = (last_time or datetime.now(timezone.utc).replace(tzinfo=None)) + timedelta(hours=7)
+                    return {
+                        "success": False,
+                        "reason": "COOLDOWN",
+                        "last_time": local_last.strftime("%H:%M:%S"),
+                        "remaining": int(max(0, remaining))
+                    }
+
+        # 3. Save to Database if required
+        if should_save:
+            payload = {
+                "employee_id": employee_id,
+                "similarity":  similarity,
+                "camera_id":   camera_id,
+                "status":      status
+            }
+            try:
+                supabase.table("attendance_logs").insert(payload).execute()
+                self.last_check_in_cache[employee_id] = datetime.now(timezone.utc).replace(tzinfo=None)
+            except Exception as e:
+                print(f"Error saving attendance to DB: {e}")
 
         return {
             "success":       True,
