@@ -3,14 +3,27 @@ HTTP client for communicating with FastAPI backend.
 Used by all Streamlit pages.
 """
 
+import os
 import requests
 
-API_BASE = "http://localhost:8000/api"
+# Load API URL from environment variables dynamically
+API_BASE = os.getenv("API_URL", os.getenv("VITE_API_URL", "http://localhost:8000/api"))
+if not API_BASE.endswith("/api"):
+    API_BASE = f"{API_BASE.rstrip('/')}/api"
+
+API_SECRET_KEY = os.getenv("API_SECRET_KEY", "")
+
+
+def _get_headers():
+    headers = {"Content-Type": "application/json"}
+    if API_SECRET_KEY:
+        headers["X-API-Key"] = API_SECRET_KEY
+    return headers
 
 
 def _get(endpoint, params=None):
     try:
-        resp = requests.get(f"{API_BASE}{endpoint}", params=params, timeout=10)
+        resp = requests.get(f"{API_BASE}{endpoint}", params=params, headers=_get_headers(), timeout=10)
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.ConnectionError:
@@ -21,7 +34,7 @@ def _get(endpoint, params=None):
 
 def _post(endpoint, json_data=None):
     try:
-        resp = requests.post(f"{API_BASE}{endpoint}", json=json_data, timeout=10)
+        resp = requests.post(f"{API_BASE}{endpoint}", json=json_data, headers=_get_headers(), timeout=10)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
@@ -30,7 +43,7 @@ def _post(endpoint, json_data=None):
 
 def _put(endpoint, json_data=None):
     try:
-        resp = requests.put(f"{API_BASE}{endpoint}", json=json_data, timeout=10)
+        resp = requests.put(f"{API_BASE}{endpoint}", json=json_data, headers=_get_headers(), timeout=10)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
@@ -39,7 +52,7 @@ def _put(endpoint, json_data=None):
 
 def _delete(endpoint):
     try:
-        resp = requests.delete(f"{API_BASE}{endpoint}", timeout=10)
+        resp = requests.delete(f"{API_BASE}{endpoint}", headers=_get_headers(), timeout=10)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
@@ -74,6 +87,9 @@ def update_employee(employee_id, data):
 
 def delete_employee(employee_id):
     return _delete(f"/employees/{employee_id}")
+
+def delete_portraits(employee_id):
+    return _delete(f"/portraits/{employee_id}")
 
 # ── Attendance ──
 def get_attendance_logs(date=None, department=None, employee_id=None, limit=100):
@@ -115,3 +131,24 @@ def get_report_summary(period="month"):
 
 def get_report_by_department():
     return _get("/reports/by-department")
+
+# ── Settings ──
+def get_settings():
+    return _get("/settings")
+
+def update_settings(data):
+    return _put("/settings", data)
+
+# ── Model Info ──
+def get_model_info():
+    return _get("/model/info")
+
+# ── Face Registration ──
+def start_registration(data):
+    return _post("/register/start", data)
+
+def get_registration_progress(employee_id):
+    return _get(f"/register/progress?employee_id={employee_id}")
+
+def stop_registration():
+    return _post("/register/stop")

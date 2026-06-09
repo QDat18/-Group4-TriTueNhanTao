@@ -1,0 +1,2 @@
+total_pairs,valid_pairs,missing_pairs,failed_pairs,accuracy,auc,eer,best_threshold,eer_threshold,far,frr,tp,tn,fp,fn
+6000,6000,0,0,0.5,0.7394951666666667,0.3268333333333333,0.0,55.61195,0.0,1.0,0,3000,0,3000
