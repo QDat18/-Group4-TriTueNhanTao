@@ -115,7 +115,9 @@ import json
 RECOGNITION_THRESHOLD = 0.35
 COOLDOWN_SECONDS = 43200
 WORK_START_TIME = "08:00"
+WORK_END_TIME = "17:30"        # ← THÊM MỚI: giờ tan ca
 ALLOW_LATE_MINUTES = 5
+ALLOW_EARLY_MINUTES = 15       # ← THÊM MỚI: biên độ về sớm
 CAMERA_SOURCE_TYPE = "webcam"  # "webcam" or "ip_camera"
 CAMERA_WEBCAM_INDEX = 0
 CAMERA_IP_URL = ""
@@ -129,7 +131,9 @@ if os.path.exists(CONFIG_JSON_PATH):
             RECOGNITION_THRESHOLD = cfg.get("recognition_threshold", RECOGNITION_THRESHOLD)
             COOLDOWN_SECONDS = cfg.get("cooldown_seconds", COOLDOWN_SECONDS)
             WORK_START_TIME = cfg.get("work_start_time", WORK_START_TIME)
+            WORK_END_TIME = cfg.get("work_end_time", WORK_END_TIME)           # ← THÊM MỚI
             ALLOW_LATE_MINUTES = cfg.get("allow_late_minutes", ALLOW_LATE_MINUTES)
+            ALLOW_EARLY_MINUTES = cfg.get("allow_early_minutes", ALLOW_EARLY_MINUTES)  # ← THÊM MỚI
             CAMERA_SOURCE_TYPE = cfg.get("camera_source_type", CAMERA_SOURCE_TYPE)
             CAMERA_WEBCAM_INDEX = cfg.get("camera_webcam_index", CAMERA_WEBCAM_INDEX)
             CAMERA_IP_URL = cfg.get("camera_ip_url", CAMERA_IP_URL)

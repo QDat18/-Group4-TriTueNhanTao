@@ -112,11 +112,13 @@ class EmbeddingBuilder:
             .execute()
         )
 
-    def run(self):
-
-        employee_dirs = sorted(
-            os.listdir(INHOUSE_ROOT)
-        )
+    def run(self, employee_id=None, upload_images=True):
+        if employee_id:
+            employee_dirs = [employee_id]
+        else:
+            employee_dirs = sorted(
+                os.listdir(INHOUSE_ROOT)
+            )
 
         total = len(employee_dirs)
 
@@ -149,12 +151,13 @@ class EmbeddingBuilder:
                 image_count
             )
 
-            # Upload images to Supabase Storage
-            from src.database.supabase_client import upload_inhouse_file
-            for filename in os.listdir(employee_path):
-                if filename.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
-                    filepath = os.path.join(employee_path, filename)
-                    upload_inhouse_file(employee_id, filename, filepath)
+            if upload_images:
+                # Upload images to Supabase Storage
+                from src.database.supabase_client import upload_inhouse_file
+                for filename in os.listdir(employee_path):
+                    if filename.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
+                        filepath = os.path.join(employee_path, filename)
+                        upload_inhouse_file(employee_id, filename, filepath)
 
             print(
                 f"Saved: {employee_id}"

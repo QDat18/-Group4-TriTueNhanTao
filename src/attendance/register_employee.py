@@ -336,7 +336,7 @@ def main():
 
     builder = EmbeddingBuilder()
 
-    builder.run()
+    builder.run(employee_id=args.employee_id, upload_images=False)
 
     print()
     print("=" * 60)

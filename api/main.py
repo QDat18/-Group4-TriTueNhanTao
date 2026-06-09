@@ -39,8 +39,11 @@ app = FastAPI(
 )
 
 @app.on_event("startup")
-def startup_event():
-    """Sync existing images from Supabase Storage on startup."""
+def sync_storage_on_startup():
+    """Optionally sync existing images from Supabase Storage on startup."""
+    if os.getenv("AUTO_SYNC_INHOUSE_ON_STARTUP", "false").lower() != "true":
+        print("[Startup] Skipped in-house photo sync. Set AUTO_SYNC_INHOUSE_ON_STARTUP=true to enable.")
+        return
     try:
         from src.database.supabase_client import sync_supabase_to_inhouse
         print("[Startup] Syncing in-house photos from Supabase Storage...")
@@ -336,9 +339,11 @@ def get_employee(employee_id: str):
 
 @app.post("/api/employees", dependencies=[Depends(verify_api_key)])
 def create_employee(employee: EmployeeCreate):
-    """Create a new employee."""
+    """Create a new employee. If employee_id existed before (soft-deleted), reactivate it."""
     try:
         payload = employee.model_dump(exclude_none=True)
+        # Luôn set is_active=True để reactivate nhân viên đã bị xóa mềm
+        payload["is_active"] = True
         supabase.table("employees").upsert(payload).execute()
         return {"message": "Employee created", "employee_id": employee.employee_id}
     except Exception as e:
@@ -363,13 +368,16 @@ def update_employee(employee_id: str, update: EmployeeUpdate):
 
 @app.delete("/api/employees/{employee_id}", dependencies=[Depends(verify_api_key)])
 def delete_employee(employee_id: str):
-    """Soft-delete an employee: set is_active=False, clean up biometric embeddings and local photos."""
+    """Soft-delete an employee: set is_active=False, clean up biometric embeddings, local photos, and attendance logs."""
     try:
         # 1. Soft-delete employee record (keeps details for historical attendance logs FK)
         supabase.table("employees").update({"is_active": False}).eq("employee_id", employee_id).execute()
         
         # 2. Hard-delete their biometric face embeddings (security and storage cleanup)
         supabase.table("face_embeddings").delete().eq("employee_id", employee_id).execute()
+        
+        # 2b. Xóa attendance logs để báo cáo không tính nhân viên đã xóa
+        supabase.table("attendance_logs").delete().eq("employee_id", employee_id).execute()
         
         # 3. Clean up physical dataset portraits folder
         portrait_dir = os.path.join("dataset", "in-house", employee_id)
@@ -395,7 +403,7 @@ def delete_employee(employee_id: str):
             except Exception as re:
                 print(f"Warning: Could not reload embeddings in memory: {re}")
 
-        return {"message": "Employee deactivated, biometric data and local portraits cleaned successfully."}
+        return {"message": "Employee deactivated, biometric data, portraits and attendance logs cleaned successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -708,9 +716,9 @@ def run_registration_in_background(employee_id, full_name, department, position,
             print(f"[REGISTRATION] Canceled for {employee_id}. Embedding build skipped.")
             return
             
-        # 2. Build embeddings (which also uploads to Supabase)
+        # 2. Build embedding only for the employee that was just registered.
         builder = EmbeddingBuilder()
-        builder.run()
+        builder.run(employee_id=employee_id, upload_images=False)
         
         # 3. Reload embeddings in active realtime system
         if realtime_system is not None:
@@ -823,7 +831,7 @@ def rebuild_embeddings():
     try:
         from src.attendance.build_embeddings import EmbeddingBuilder
         builder = EmbeddingBuilder()
-        builder.run()
+        builder.run(upload_images=False)
         
         # Reload embeddings in-memory
         global realtime_system
@@ -917,42 +925,20 @@ def get_model_info():
         model_path = config.FINAL_CHECKPOINT_PATH
         model_name = os.path.basename(model_path)
         
-        # Set metrics based on model
         if "finetuned" in model_name or "rmfrd" in model_name:
-            metrics = {
-                "rank1": "7.11%",
-                "rank5": "23.35%",
-                "eer": "32.28%",
-                "threshold": "0.44"
-            }
+            metrics = {"rank1": "7.11%", "rank5": "23.35%", "eer": "32.28%", "threshold": "0.44"}
         elif "warmup" in model_name:
-            metrics = {
-                "rank1": "4.57%",
-                "rank5": "16.24%",
-                "eer": "42.80%",
-                "threshold": "0.11"
-            }
+            metrics = {"rank1": "4.57%", "rank5": "16.24%", "eer": "42.80%", "threshold": "0.11"}
         else:
-            metrics = {
-                "rank1": "—",
-                "rank5": "—",
-                "eer": "—",
-                "threshold": "—"
-            }
+            metrics = {"rank1": "—", "rank5": "—", "eer": "—", "threshold": "—"}
             
-        # Try to read the evaluation report
         report_content = ""
         report_path = "evaluation_reports/afdb_masked_evaluation_report.md"
         if os.path.exists(report_path):
             with open(report_path, "r", encoding="utf-8") as f:
                 report_content = f.read()
                 
-        return {
-            "model_path": model_path,
-            "model_name": model_name,
-            "metrics": metrics,
-            "report": report_content
-        }
+        return {"model_path": model_path, "model_name": model_name, "metrics": metrics, "report": report_content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -980,7 +966,6 @@ def get_current_face():
     """Return the person currently being recognized in the live camera feed."""
     try:
         system = get_realtime_system()
-        # Snapshot active streams without holding the lock long
         with system.stream_lock:
             streams_snapshot = list(system.active_streams.values())
 
@@ -989,13 +974,11 @@ def get_current_face():
             worker = stream_info.get("worker")
             if not worker:
                 continue
-            data = worker.get_draw_data()  # thread-safe via worker.lock
+            data = worker.get_draw_data()
             for item in data:
                 label = item.get("label", "")
-                # Only show recognized employees (not Unknown/SPOOF/Error/empty)
                 if not label or label in ("Unknown", "Error") or "SPOOF" in label:
                     continue
-                # Parse label format: "Name - STATUS ..." or "Name - COOLDOWN (Xs)"
                 parts = label.split(" - ", 1)
                 if len(parts) == 2:
                     name = parts[0].strip()
@@ -1032,7 +1015,6 @@ def get_attendance_stream(camera_id: Optional[str] = None):
         from src import config
         system = get_realtime_system()
         
-        # Determine camera source
         if camera_id is not None:
             camera_source = camera_id
         else:

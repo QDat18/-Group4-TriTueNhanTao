@@ -32,6 +32,8 @@ const departments = [
   'Admin'
 ];
 
+const MAX_PER_DEPT = 10;
+
 function getNextEmployeeId(employees) {
   const usedNumbers = employees
     .map(emp => String(emp.employee_id || '').trim())
@@ -403,6 +405,18 @@ export default function Employees() {
       return;
     }
 
+    // Kiểm tra giới hạn phòng ban khi tạo mới
+    if (!editing) {
+      const currentCount = employees.filter(e => e.department === payload.department).length;
+      if (currentCount >= MAX_PER_DEPT) {
+        setNotice({
+          type: 'error',
+          message: `Phòng ban ${payload.department} đã đủ ${MAX_PER_DEPT} người. Vui lòng chọn phòng ban khác.`
+        });
+        return;
+      }
+    }
+
     setLoading(true);
     setNotice(null);
 
@@ -488,6 +502,10 @@ export default function Employees() {
       setLoading(false);
     }
   };
+
+  // Số người trong phòng ban đang chọn (dùng cho modal)
+  const selectedDeptCount = employees.filter(e => e.department === form.department).length;
+  const isDeptFull = !editing && selectedDeptCount >= MAX_PER_DEPT;
 
   return (
     <div className="animate-in">
@@ -616,11 +634,8 @@ export default function Employees() {
           <option value="">Tất cả phòng ban</option>
 
           {departments.map(dept => (
-            <option
-              key={dept}
-              value={dept}
-            >
-              {dept}
+            <option key={dept} value={dept}>
+              {dept} ({departmentCounts[dept] || 0}/{MAX_PER_DEPT})
             </option>
           ))}
         </select>
@@ -957,13 +972,23 @@ export default function Employees() {
                         ...form,
                         department: e.target.value
                       })}
+                      style={isDeptFull ? { borderColor: '#fca5a5' } : {}}
                     >
-                      {departments.map(dept => (
-                        <option key={dept}>
-                          {dept}
-                        </option>
-                      ))}
+                      {departments.map(dept => {
+                        const cnt = employees.filter(e => e.department === dept).length;
+                        const isFull = !editing && cnt >= MAX_PER_DEPT;
+                        return (
+                          <option key={dept} value={dept} disabled={isFull}>
+                            {dept} ({cnt}/{MAX_PER_DEPT}){isFull ? ' — ĐẦY' : ''}
+                          </option>
+                        );
+                      })}
                     </select>
+                    {!editing && (
+                      isDeptFull
+                        ? <div style={{ marginTop: 5, fontSize: '0.72rem', color: '#dc2626', fontWeight: 700 }}>⚠️ Phòng ban đã đủ {MAX_PER_DEPT} người!</div>
+                        : <div style={{ marginTop: 5, fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>Còn {MAX_PER_DEPT - selectedDeptCount} chỗ trống</div>
+                    )}
                   </div>
 
                   <div className="input-group">
@@ -1055,7 +1080,7 @@ export default function Employees() {
                 <button
                   className="btn btn-primary"
                   onClick={handleSave}
-                  disabled={loading || !form.employee_id || !form.full_name}
+                  disabled={loading || !form.employee_id || !form.full_name || isDeptFull}
                 >
                   {loading ? '⏳ Đang lưu...' : '💾 Lưu'}
                 </button>

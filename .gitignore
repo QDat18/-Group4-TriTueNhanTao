@@ -22,7 +22,7 @@ env/
 # Data & Models
 dataset/
 checkpoints/*
-models/
+/models/
 
 # Build & Runtime
 node_modules/
