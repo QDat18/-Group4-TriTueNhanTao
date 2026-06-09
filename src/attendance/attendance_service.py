@@ -39,6 +39,7 @@ class AttendanceService:
         self.employee_ids_list = []
         self.faiss_index = None
         self.last_check_in_cache = {}
+        self.check_in_display_until = {}
         self.current_local_date = self._local_now().date()
         self.load_embeddings()
 
@@ -58,6 +59,7 @@ class AttendanceService:
         today = self._local_now().date()
         if today != self.current_local_date:
             self.last_check_in_cache.clear()
+            self.check_in_display_until.clear()
             self.current_local_date = today
             print(f"[AttendanceService] Reset daily attendance cache for {today}.")
 
@@ -207,6 +209,14 @@ class AttendanceService:
         # Check if they have checked in or checked out today
         has_checked_in = any(l.get("status") in ("SUCCESS", "LATE") for l in today_logs)
         has_checked_out = any(l.get("status") in ("CHECK_OUT", "EARLY_LEAVE") for l in today_logs)
+        last_check_in_status = next(
+            (
+                l.get("status")
+                for l in reversed(today_logs)
+                if l.get("status") in ("SUCCESS", "LATE")
+            ),
+            "SUCCESS"
+        )
 
         # Current local time (UTC+7)
         now_local = datetime.now(timezone.utc) + timedelta(hours=7)
@@ -246,7 +256,11 @@ class AttendanceService:
             # Đã check-in, chưa check-out
             if now_time < midday_time:
                 # Rule 4: Từ chối check-out
-                status = "REJECTED_CHECK_OUT"
+                display_until = self.check_in_display_until.get(employee_id)
+                if display_until and datetime.now(timezone.utc) < display_until:
+                    status = last_check_in_status
+                else:
+                    status = "REJECTED_CHECK_OUT"
                 should_save = False
             else:
                 if now_time < work_end_time:
@@ -310,6 +324,10 @@ class AttendanceService:
             try:
                 supabase.table("attendance_logs").insert(payload).execute()
                 self.last_check_in_cache[employee_id] = datetime.now(timezone.utc).replace(tzinfo=None)
+                if status in ("SUCCESS", "LATE"):
+                    self.check_in_display_until[employee_id] = (
+                        datetime.now(timezone.utc) + timedelta(seconds=12)
+                    )
             except Exception as e:
                 print(f"Error saving attendance to DB: {e}")
 
