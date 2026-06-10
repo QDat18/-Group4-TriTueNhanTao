@@ -147,19 +147,34 @@ pip install onnxruntime-gpu
 ## 7. Hướng dẫn sử dụng
 
 ### 7.1 Huấn luyện mô hình (Training)
+
+**1. Huấn luyện mô hình MobileNetV2 (Nhẹ, tốc độ cao):**
 Để tự huấn luyện mô hình MobileNetV2 từ đầu với ArcFace:
 ```bash
 python -m src.training.train_mobilenetv2_arcface
 ```
-Quá trình huấn luyện sẽ lưu checkpoints tại `checkpoints/` và lịch sử vào `logs/`.
+
+**2. Huấn luyện mô hình Custom ResNet-50 (Độ chính xác cao):**
+Mô hình này được huấn luyện trên các tập dữ liệu lớn như VGGFace2 để tối ưu hóa khả năng trích xuất đặc trưng khuôn mặt:
+```bash
+python -m src.training.train_vggface2
+```
+
+Quá trình huấn luyện sẽ tự động lưu lại các checkpoints tại `checkpoints/` và lịch sử training (loss, accuracy) vào thư mục `logs/`.
 
 ### 7.2 Đánh giá mô hình (Evaluation)
-Đánh giá MobileNetV2 trên tất cả các tập benchmark (LFW, CALFW, CPLFW, AgeDB-30):
+
+**Đánh giá MobileNetV2** trên tất cả các tập benchmark (LFW, CALFW, CPLFW, AgeDB-30):
 ```bash
 python -m src.evaluation.evaluate_mobilenetv2 --dataset all
 ```
 
-Đánh giá so sánh InsightFace (Baseline) trên các tập benchmark:
+**Đánh giá Custom ResNet-50 (VGG Checkpoints)** trên các tập benchmark:
+```bash
+python -m src.evaluation.evaluate_vggface2 --dataset all
+```
+
+**Đánh giá InsightFace (Baseline)** trên các tập benchmark để so sánh:
 ```bash
 python -m src.evaluation.evaluate_benchmark --model-type baseline --dataset all
 ```
