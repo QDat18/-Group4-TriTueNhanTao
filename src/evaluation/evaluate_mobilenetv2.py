@@ -114,45 +114,15 @@ def read_pairs(pairs_file, root_dir):
     return pairs
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Evaluate MobileNetV2 + ArcFace on LFW")
-    parser.add_argument(
-        "--checkpoint",
-        type=str,
-        default="checkpoints/arcface_mobilenetv2_lite.pth",
-        help="Path to MobileNetV2 model checkpoint"
-    )
-    args = parser.parse_args()
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    
-    val_root = "dataset/benchmark/val"
-    pairs_file = os.path.join(val_root, "lfw_ann.txt")
-    output_dir = "outputs/evaluation"
-    output_csv = os.path.join(output_dir, "lfw_mobilenetv2_eval.csv")
-
-    # Kiểm tra checkpoint tồn tại
-    if not os.path.exists(args.checkpoint):
-        # Fallback to the full checkpoint if the lite one doesn't exist yet
-        fallback = args.checkpoint.replace("_lite.pth", ".pth")
-        if os.path.exists(fallback):
-            args.checkpoint = fallback
-        else:
-            print(f"[ERROR] Checkpoint not found at: {args.checkpoint} or {fallback}")
-            print("[INFO] Please run the training script first to generate checkpoints.")
-            return
-
-    evaluator = MobileNetV2Evaluator(args.checkpoint, device)
-    
-    print("[INFO] Reading LFW pairs...")
-    pairs = read_pairs(pairs_file, val_root)
-    
+def evaluate_dataset(evaluator, root_dir, pairs_file, output_csv, dataset_name):
+    pairs = read_pairs(pairs_file, root_dir)
     labels = []
     scores = []
     missing = 0
     failed = 0
 
-    for img1, img2, label in tqdm(pairs, desc="Evaluating MobileNetV2"):
+    desc = f"Evaluating {dataset_name.upper()}"
+    for img1, img2, label in tqdm(pairs, desc=desc):
         if not os.path.exists(img1) or not os.path.exists(img2):
             missing += 1
             continue
@@ -167,8 +137,8 @@ def main():
             print(f"[WARNING] Skip pair: {img1} | {img2} | Error: {e}")
 
     if len(labels) == 0:
-        print("[ERROR] No valid pairs found.")
-        return
+        print(f"[ERROR] No valid pairs found for {dataset_name}.")
+        return None
 
     labels_np = np.array(labels)
     scores_np = np.array(scores)
@@ -187,18 +157,9 @@ def main():
     far = fp / max(1, fp + tn)
     frr = fn / max(1, fn + tp)
 
-    print("\n" + "="*50)
-    print("MOBILENETV2 ON LFW EVALUATION RESULTS:")
-    print(f"Total Valid Pairs: {len(labels)}")
-    print(f"Accuracy: {accuracy * 100:.2f}%")
-    print(f"AUC: {auc_score:.4f}")
-    print(f"EER: {eer * 100:.2f}%")
-    print(f"Best Cosine Threshold: {threshold:.4f}")
-    print(f"FAR: {far * 100:.2f}% | FRR: {frr * 100:.2f}%")
-    print("="*50 + "\n")
-
-    # Write CSV
+    output_dir = os.path.dirname(output_csv)
     os.makedirs(output_dir, exist_ok=True)
+    
     with open(output_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
@@ -212,17 +173,16 @@ def main():
             far, frr, tp, tn, fp, fn
         ])
 
-    # Draw Confusion Matrix
     cm = confusion_matrix(labels_np, preds, labels=[0, 1])
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Different", "Same"])
     disp.plot(cmap="Blues", values_format="d")
-    plt.title(f"LFW Confusion Matrix (MobileNetV2)")
+    plt.title(f"{dataset_name.upper()} Confusion Matrix (MobileNetV2)")
     plt.tight_layout()
-    cm_path = os.path.join(output_dir, "lfw_mobilenetv2_eval_confusion_matrix.png")
+    base_name = os.path.splitext(os.path.basename(output_csv))[0]
+    cm_path = os.path.join(output_dir, f"{base_name}_confusion_matrix.png")
     plt.savefig(cm_path, dpi=300)
     plt.close()
 
-    # Draw ROC
     fpr, tpr, _ = roc_curve(labels_np, scores_np)
     plt.figure()
     plt.plot(fpr, tpr, color="teal", lw=2, label=f"ROC curve (area = {auc_score:.4f})")
@@ -231,14 +191,90 @@ def main():
     plt.ylim([0.0, 1.05])
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title(f"LFW ROC Curve (MobileNetV2)")
+    plt.title(f"{dataset_name.upper()} ROC Curve (MobileNetV2)")
     plt.legend(loc="lower right")
     plt.tight_layout()
-    roc_path = os.path.join(output_dir, "lfw_mobilenetv2_eval_roc_curve.png")
+    roc_path = os.path.join(output_dir, f"{base_name}_roc_curve.png")
     plt.savefig(roc_path, dpi=300)
     plt.close()
 
-    print(f"[SUCCESS] Saved evaluation results and plots to: {output_dir}")
+    return {
+        "dataset": dataset_name.upper(),
+        "total": len(pairs),
+        "valid": len(labels),
+        "accuracy": accuracy,
+        "auc": auc_score,
+        "eer": eer,
+        "best_threshold": threshold,
+        "far": far,
+        "frr": frr
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Evaluate MobileNetV2 + ArcFace on Benchmarks")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default="checkpoints/arcface_mobilenetv2_lite.pth",
+        help="Path to MobileNetV2 model checkpoint"
+    )
+    parser.add_argument(
+        "--dataset",
+        choices=["lfw", "calfw", "cplfw", "agedb30", "all"],
+        default="all",
+        help="Dataset name"
+    )
+    args = parser.parse_args()
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    if not os.path.exists(args.checkpoint):
+        fallback = args.checkpoint.replace("_lite.pth", ".pth")
+        if os.path.exists(fallback):
+            args.checkpoint = fallback
+        else:
+            print(f"[ERROR] Checkpoint not found at: {args.checkpoint} or {fallback}")
+            print("[INFO] Please run the training script first to generate checkpoints.")
+            return
+
+    evaluator = MobileNetV2Evaluator(args.checkpoint, device)
+    
+    val_root = "dataset/benchmark/val"
+    output_dir = "outputs/evaluation"
+    
+    datasets_config = {
+        "lfw": {"pairs": "lfw_ann.txt", "csv": "lfw_mobilenetv2_eval.csv"},
+        "calfw": {"pairs": "calfw_ann.txt", "csv": "calfw_mobilenetv2_eval.csv"},
+        "cplfw": {"pairs": "cplfw_ann.txt", "csv": "cplfw_mobilenetv2_eval.csv"},
+        "agedb30": {"pairs": "agedb_30_ann.txt", "csv": "agedb30_mobilenetv2_eval.csv"}
+    }
+    
+    target_keys = [args.dataset] if args.dataset != "all" else ["lfw", "calfw", "cplfw", "agedb30"]
+    
+    results = []
+    for key in target_keys:
+        cfg = datasets_config[key]
+        pairs_file = os.path.join(val_root, cfg["pairs"])
+        output_csv = os.path.join(output_dir, cfg["csv"])
+        
+        print("\n" + "="*50)
+        print(f"Evaluating MobileNetV2 on {key.upper()}...")
+        print("="*50)
+        
+        res = evaluate_dataset(evaluator, val_root, pairs_file, output_csv, key)
+        if res:
+            results.append(res)
+            
+    print("\n" + "="*90)
+    print(" MOBILENETV2 EVALUATION SUMMARY TABLE")
+    print("="*90)
+    print(f"{'Dataset':<12} | {'Pairs':<6} | {'Accuracy':<10} | {'AUC':<8} | {'EER':<8} | {'Threshold':<10} | {'FAR':<8} | {'FRR':<8}")
+    print("-"*90)
+    for r in results:
+        print(f"{r['dataset']:<12} | {r['valid']:<6} | {r['accuracy']*100:>8.2f}% | {r['auc']:>8.4f} | {r['eer']*100:>6.2f}% | {r['best_threshold']:>10.4f} | {r['far']*100:>6.2f}% | {r['frr']*100:>6.2f}%")
+    print("="*90)
+    print(f"All reports saved to: {output_dir}")
 
 
 if __name__ == "__main__":
