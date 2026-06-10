@@ -10,7 +10,7 @@ pinned: false
 
 # Hệ thống Chấm công Tự động bằng Nhận diện Khuôn mặt (Face Attendance System)
 
-> Hệ thống chấm công tự động sử dụng camera thời gian thực, ứng dụng các mô hình nhận diện khuôn mặt tiên tiến như **InsightFace (iResNet-100)**, **MobileNetV2**, và **VGG / ResNet** với hàm loss **ArcFace** nhằm xác thực nhân viên và ghi nhận thời gian làm việc một cách nhanh chóng, chính xác.
+> Hệ thống chấm công tự động sử dụng camera thời gian thực, ứng dụng các mô hình nhận diện khuôn mặt tiên tiến như **InsightFace (iResNet-50)**, **MobileNetV2**, và **VGG / ResNet** với hàm loss **ArcFace** nhằm xác thực nhân viên và ghi nhận thời gian làm việc một cách nhanh chóng, chính xác.
 
 ---
 
@@ -27,7 +27,7 @@ Hệ thống sử dụng camera/webcam để thu nhận hình ảnh khuôn mặt
 
 * **Nhận diện khuôn mặt Real-time:** Xử lý luồng video từ webcam để phát hiện và nhận diện khuôn mặt với độ trễ thấp.
 * **Hỗ trợ đa mô hình (Multi-model Support):**
-  * **InsightFace (buffalo_l):** Backbone iResNet-100 cho độ chính xác cực cao.
+  * **InsightFace (buffalo_l):** Backbone iResNet-50 cho độ chính xác cực cao.
   * **MobileNetV2 + ArcFace:** Trọng số nhẹ, tốc độ cao, phù hợp chạy trên CPU.
   * **VGG-Face / Custom ResNet:** Phục vụ nghiên cứu và đánh giá so sánh.
 * **Huấn luyện mô hình (Training):** Tích hợp pipeline huấn luyện hoàn chỉnh với ArcFace, tự động checkpointing và logging (TensorBoard / CSV).
@@ -214,6 +214,7 @@ Hệ thống sử dụng các tiêu chuẩn đo lường khắt khe trong nhận
 ## 9. Đội ngũ phát triển
 
 **Tên nhóm:** Nhóm 4 (Lớp Trí Tuệ Nhân Tạo)
+
 **Trường:** Học viện Ngân hàng
 
 ---
