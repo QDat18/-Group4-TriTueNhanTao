@@ -153,10 +153,12 @@ export default function RealtimeAttendance() {
   const [policy, setPolicy] = useState({ work_start_time: '08:00', work_end_time: '17:30', allow_late_minutes: 15, allow_early_minutes: 15 });
   const [streamUrl, setStreamUrl] = useState(`${BACKEND}/api/attendance/stream?t=${Date.now()}`);
   const [now, setNow] = useState(new Date());
+  const [earlyLeavePopup, setEarlyLeavePopup] = useState(null);
 
   const pollIntervalRef = useRef(null);
   const facePollRef = useRef(null);
   const clockRef = useRef(null);
+  const earlyLeavePopupRef = useRef({ lastKey: null, timer: null });
 
   // Live clock
   useEffect(() => {
@@ -247,6 +249,28 @@ export default function RealtimeAttendance() {
     return () => clearInterval(facePollRef.current);
   }, [isStreaming]);
 
+  useEffect(() => {
+    const latestEarlyLeave = logs.find(log => log.status === 'EARLY_LEAVE');
+    if (!latestEarlyLeave?.check_time) return;
+
+    const checkTime = new Date(latestEarlyLeave.check_time);
+    if (Number.isNaN(checkTime.getTime()) || Date.now() - checkTime.getTime() > 10000) return;
+
+    const popupKey = latestEarlyLeave.attendance_id || `${latestEarlyLeave.employee_id}-${latestEarlyLeave.check_time}`;
+    if (earlyLeavePopupRef.current.lastKey === popupKey) return;
+
+    earlyLeavePopupRef.current.lastKey = popupKey;
+    window.clearTimeout(earlyLeavePopupRef.current.timer);
+    setEarlyLeavePopup(latestEarlyLeave);
+    earlyLeavePopupRef.current.timer = window.setTimeout(() => {
+      setEarlyLeavePopup(null);
+    }, 8000);
+  }, [logs]);
+
+  useEffect(() => {
+    return () => window.clearTimeout(earlyLeavePopupRef.current.timer);
+  }, []);
+
   const formatTime = (iso) => {
     if (!iso) return '—';
     try { return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
@@ -276,6 +300,52 @@ export default function RealtimeAttendance() {
 
   return (
     <div className="animate-in" style={{ maxWidth: 1280, margin: '0 auto', paddingBottom: '3rem' }}>
+      {earlyLeavePopup && (
+        <div style={{
+          position: 'fixed', top: 24, right: 24, zIndex: 9999,
+          width: 'min(420px, calc(100vw - 32px))',
+          background: '#fff7ed', color: '#9a3412',
+          border: '1px solid #fdba74', borderLeft: '5px solid #f97316',
+          borderRadius: '12px', padding: '1rem 1.1rem',
+          boxShadow: '0 18px 45px rgba(15, 23, 42, 0.22)',
+          display: 'flex', gap: '0.85rem', alignItems: 'flex-start',
+          animation: 'fadeIn 0.2s ease'
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: '#ffedd5', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', flexShrink: 0
+          }}>
+            <TrendingDown size={20} color="#ea580c" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
+              Canh bao check-out ve som
+            </div>
+            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#7c2d12', lineHeight: 1.3 }}>
+              {earlyLeavePopup.full_name || earlyLeavePopup.employee_id || 'Nhan vien'} dang ra ve truoc gio quy dinh
+            </div>
+            <div style={{ marginTop: '0.35rem', fontSize: '0.78rem', fontWeight: 600, lineHeight: 1.45 }}>
+              Gio tan lam: <strong>{policy.work_end_time}</strong> | Check-out: <strong>{formatTime(earlyLeavePopup.check_time)}</strong>
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Dong canh bao ve som"
+            onClick={() => {
+              window.clearTimeout(earlyLeavePopupRef.current.timer);
+              setEarlyLeavePopup(null);
+            }}
+            style={{
+              border: 0, background: 'transparent', color: '#9a3412',
+              fontSize: '1.2rem', lineHeight: 1, cursor: 'pointer',
+              padding: 0, width: 24, height: 24, fontWeight: 800
+            }}
+          >
+            x
+          </button>
+        </div>
+      )}
 
       {/* ── Header ── */}
       <div style={{

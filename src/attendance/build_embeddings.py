@@ -1,16 +1,36 @@
 import os
 import cv2
 import numpy as np
+from datetime import datetime, timedelta, timezone
 
 from src.models.insightface_model import InsightFaceModel
 from src.database.supabase_client import supabase
 from src.config import INHOUSE_ROOT
 
 
+def vietnam_wall_time_iso():
+    """Return Vietnam local wall time for Supabase table-editor display."""
+    return (datetime.now(timezone.utc) + timedelta(hours=7)).replace(tzinfo=None).isoformat()
+
+
 class EmbeddingBuilder:
 
     def __init__(self):
         self.model = InsightFaceModel()
+
+    def _active_employee_ids(self):
+        try:
+            resp = (
+                supabase
+                .table("employees")
+                .select("employee_id")
+                .eq("is_active", True)
+                .execute()
+            )
+            return {row["employee_id"] for row in (resp.data or [])}
+        except Exception as e:
+            print(f"Warning loading active employee ids: {e}")
+            return set()
 
     def process_employee(
         self,
@@ -91,7 +111,8 @@ class EmbeddingBuilder:
         payload = {
             "employee_id": employee_id,
             "embedding_vector": embedding_list,
-            "image_count": image_count
+            "image_count": image_count,
+            "created_at": vietnam_wall_time_iso()
         }
 
         try:
@@ -113,11 +134,17 @@ class EmbeddingBuilder:
         )
 
     def run(self, employee_id=None, upload_images=True):
+        active_ids = self._active_employee_ids()
+
         if employee_id:
+            if active_ids and employee_id not in active_ids:
+                raise ValueError(f"Employee {employee_id} does not exist or is inactive.")
             employee_dirs = [employee_id]
         else:
             employee_dirs = sorted(
-                os.listdir(INHOUSE_ROOT)
+                employee_dir
+                for employee_dir in os.listdir(INHOUSE_ROOT)
+                if employee_dir in active_ids
             )
 
         total = len(employee_dirs)

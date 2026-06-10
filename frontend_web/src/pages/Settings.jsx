@@ -5,7 +5,9 @@ import { getSettings, updateSettings } from '../api';
 export default function Settings() {
   const [form, setForm] = useState({
     work_start_time: '08:00',
+    work_end_time: '17:30',
     allow_late_minutes: 30,
+    allow_early_minutes: 15,
     cooldown_seconds: 43200,
     recognition_threshold: 0.45,
     camera_source_type: 'webcam',
@@ -22,7 +24,9 @@ export default function Settings() {
       if (res && !res.error) {
         setForm({
           work_start_time: res.work_start_time || '08:00',
+          work_end_time: res.work_end_time || '17:30',
           allow_late_minutes: res.allow_late_minutes !== undefined ? res.allow_late_minutes : 30,
+          allow_early_minutes: res.allow_early_minutes !== undefined ? res.allow_early_minutes : 15,
           cooldown_seconds: res.cooldown_seconds !== undefined ? res.cooldown_seconds : 43200,
           recognition_threshold: res.recognition_threshold !== undefined ? res.recognition_threshold : 0.45,
           camera_source_type: res.camera_source_type || 'webcam',
@@ -42,7 +46,9 @@ export default function Settings() {
     // Parse values safely for the backend payload
     const payload = {
       work_start_time: form.work_start_time,
+      work_end_time: form.work_end_time,
       allow_late_minutes: parseInt(form.allow_late_minutes) || 0,
+      allow_early_minutes: parseInt(form.allow_early_minutes) || 0,
       cooldown_seconds: parseInt(form.cooldown_seconds) || 0,
       recognition_threshold: parseFloat(form.recognition_threshold) || 0.45,
       camera_source_type: form.camera_source_type,
@@ -159,6 +165,28 @@ export default function Settings() {
                     className="input" 
                     value={form.allow_late_minutes} 
                     onChange={e => setForm({ ...form, allow_late_minutes: e.target.value })}
+                    min={0} 
+                    max={180} 
+                    required 
+                  />
+                </div>
+                <div className="input-group">
+                  <label>Gio tan lam</label>
+                  <input 
+                    type="time" 
+                    className="input" 
+                    value={form.work_end_time} 
+                    onChange={e => setForm({ ...form, work_end_time: e.target.value })}
+                    required 
+                  />
+                </div>
+                <div className="input-group">
+                  <label>Phut canh bao ve som</label>
+                  <input 
+                    type="number" 
+                    className="input" 
+                    value={form.allow_early_minutes} 
+                    onChange={e => setForm({ ...form, allow_early_minutes: e.target.value })}
                     min={0} 
                     max={180} 
                     required 

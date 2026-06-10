@@ -66,6 +66,36 @@ def get_cached_data(cache_key):
 def set_cached_data(cache_key, val, ttl_seconds=3.0):
     query_cache[cache_key] = (val, time.time() + ttl_seconds)
 
+def clear_query_cache():
+    query_cache.clear()
+
+def purge_employee_artifacts(employee_id: str):
+    """Remove biometric data, attendance logs, local portraits, and Supabase Storage portraits."""
+    cleanup = {
+        "face_embeddings": False,
+        "attendance_logs": False,
+        "local_portraits": False,
+        "supabase_storage": False,
+    }
+
+    supabase.table("face_embeddings").delete().eq("employee_id", employee_id).execute()
+    cleanup["face_embeddings"] = True
+
+    supabase.table("attendance_logs").delete().eq("employee_id", employee_id).execute()
+    cleanup["attendance_logs"] = True
+
+    portrait_dir = os.path.join("dataset", "in-house", employee_id)
+    if os.path.exists(portrait_dir):
+        import shutil
+        shutil.rmtree(portrait_dir)
+    cleanup["local_portraits"] = True
+
+    from src.database.supabase_client import delete_inhouse_folder
+    cleanup["supabase_storage"] = bool(delete_inhouse_folder(employee_id))
+
+    clear_query_cache()
+    return cleanup
+
 def parse_isoformat(dt_str: str) -> datetime:
     """Safely parse ISO datetime strings from Supabase, handling variable fractional second lengths."""
     dt_str = dt_str.replace("Z", "+00:00")
@@ -190,6 +220,7 @@ def get_dashboard_stats():
     try:
         # Total employees
         emp_resp = supabase.table("employees").select("employee_id", count="exact").eq("is_active", True).execute()
+        active_employee_ids = {emp["employee_id"] for emp in (emp_resp.data or [])}
         total_employees = emp_resp.count or len(emp_resp.data)
 
         # Today's attendance
@@ -202,8 +233,12 @@ def get_dashboard_stats():
             .execute()
         )
 
-        today_logs = att_resp.data
-        unique_today = set(log["employee_id"] for log in today_logs if log["status"] == "SUCCESS")
+        today_logs = [
+            log for log in (att_resp.data or [])
+            if log.get("employee_id") in active_employee_ids
+        ]
+        present_statuses = {"SUCCESS", "LATE", "CHECK_OUT", "EARLY_LEAVE"}
+        unique_today = set(log["employee_id"] for log in today_logs if log.get("status") in present_statuses)
         present_today = len(unique_today)
 
         # Late arrivals (after 08:30)
@@ -238,6 +273,9 @@ def get_dashboard_stats():
 def get_attendance_chart(days: int = 30):
     """Get attendance data for the last N days."""
     try:
+        emp_resp = supabase.table("employees").select("employee_id").eq("is_active", True).execute()
+        active_employee_ids = {emp["employee_id"] for emp in (emp_resp.data or [])}
+
         start_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         resp = (
             supabase.table("attendance_logs")
@@ -249,7 +287,9 @@ def get_attendance_chart(days: int = 30):
 
         # Group by date
         daily = {}
-        for log in resp.data:
+        for log in (resp.data or []):
+            if log.get("employee_id") not in active_employee_ids:
+                continue
             date = log["check_time"][:10]
             if date not in daily:
                 daily[date] = set()
@@ -410,34 +450,12 @@ def update_employee(employee_id: str, update: EmployeeUpdate):
 
 @app.delete("/api/employees/{employee_id}", dependencies=[Depends(verify_api_key)])
 def delete_employee(employee_id: str):
-    """Soft-delete an employee: set is_active=False, clean up biometric embeddings, local photos, and attendance logs."""
+    """Hard-delete an employee and all biometric/attendance artifacts."""
     try:
-        # 1. Soft-delete employee record (keeps details for historical attendance logs FK)
-        supabase.table("employees").update({"is_active": False}).eq("employee_id", employee_id).execute()
-        
-        # 2. Hard-delete their biometric face embeddings (security and storage cleanup)
-        supabase.table("face_embeddings").delete().eq("employee_id", employee_id).execute()
-        
-        # 2b. Xóa attendance logs để báo cáo không tính nhân viên đã xóa
-        supabase.table("attendance_logs").delete().eq("employee_id", employee_id).execute()
-        
-        # 3. Clean up physical dataset portraits folder
-        portrait_dir = os.path.join("dataset", "in-house", employee_id)
-        if os.path.exists(portrait_dir):
-            import shutil
-            try:
-                shutil.rmtree(portrait_dir)
-            except Exception as se:
-                print(f"Warning: Could not remove local files for {employee_id}: {se}")
+        cleanup = purge_employee_artifacts(employee_id)
+        supabase.table("employees").delete().eq("employee_id", employee_id).execute()
+        clear_query_cache()
 
-        # 3b. Clean up Supabase Storage files
-        from src.database.supabase_client import delete_inhouse_folder
-        try:
-            delete_inhouse_folder(employee_id)
-        except Exception as sse:
-            print(f"Warning: Could not remove Supabase Storage files for {employee_id}: {sse}")
-
-        # 4. Trigger memory reload in active realtime camera loop
         global realtime_system
         if realtime_system is not None:
             try:
@@ -445,7 +463,10 @@ def delete_employee(employee_id: str):
             except Exception as re:
                 print(f"Warning: Could not reload embeddings in memory: {re}")
 
-        return {"message": "Employee deactivated, biometric data, portraits and attendance logs cleaned successfully."}
+        return {
+            "message": "Employee and all related biometric/attendance artifacts deleted successfully.",
+            "cleanup": cleanup,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -487,11 +508,18 @@ def get_attendance_logs(
             dept_ids = set(e["employee_id"] for e in emp_resp.data)
             logs = [l for l in logs if l["employee_id"] in dept_ids]
 
-        # Enrich with employee names (optimized query to fetch only required employees)
+        # Enrich with active employee names (optimized query to fetch only required employees)
         emp_ids = list(set(l["employee_id"] for l in logs))
         if emp_ids:
-            emp_resp = supabase.table("employees").select("employee_id, full_name, department").in_("employee_id", emp_ids).execute()
+            emp_resp = (
+                supabase.table("employees")
+                .select("employee_id, full_name, department")
+                .in_("employee_id", emp_ids)
+                .eq("is_active", True)
+                .execute()
+            )
             emp_map = {e["employee_id"]: e for e in emp_resp.data}
+            logs = [log for log in logs if log["employee_id"] in emp_map]
             for log in logs:
                 emp = emp_map.get(log["employee_id"], {})
                 log["full_name"] = emp.get("full_name", "Unknown")
@@ -513,18 +541,23 @@ def list_embeddings():
     """List all face embeddings, deduplicated by employee_id (keeping the latest one)."""
     try:
         resp = supabase.table("face_embeddings").select(
-            "employee_id, image_count, created_at, employees(full_name)"
+            "employee_id, image_count, created_at, employees(full_name, is_active)"
         ).order("created_at", desc=True).execute()
         
         seen_ids = set()
         formatted = []
-        for row in resp.data:
+        stale_employee_ids = set()
+        for row in resp.data or []:
             emp_id = row["employee_id"]
             if emp_id in seen_ids:
                 continue
             seen_ids.add(emp_id)
             
             emp = row.get("employees") or {}
+            if not isinstance(emp, dict) or not emp.get("is_active", False):
+                stale_employee_ids.add(emp_id)
+                continue
+
             full_name = emp.get("full_name", "Unknown") if isinstance(emp, dict) else "Unknown"
             formatted.append({
                 "employee_id": emp_id,
@@ -532,6 +565,18 @@ def list_embeddings():
                 "image_count": row["image_count"],
                 "updated_at": row.get("created_at")
             })
+
+        for emp_id in stale_employee_ids:
+            supabase.table("face_embeddings").delete().eq("employee_id", emp_id).execute()
+        if stale_employee_ids:
+            clear_query_cache()
+            global realtime_system
+            if realtime_system is not None:
+                try:
+                    realtime_system.attendance_service.load_embeddings()
+                except Exception as re:
+                    print(f"Warning: Could not reload embeddings in memory: {re}")
+
         return {"data": formatted}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -542,6 +587,13 @@ def delete_embedding(employee_id: str):
     """Delete embedding for an employee."""
     try:
         supabase.table("face_embeddings").delete().eq("employee_id", employee_id).execute()
+        clear_query_cache()
+        global realtime_system
+        if realtime_system is not None:
+            try:
+                realtime_system.attendance_service.load_embeddings()
+            except Exception as re:
+                print(f"Warning: Could not reload embeddings in memory: {re}")
         return {"message": "Embedding deleted"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -624,6 +676,7 @@ def get_report_summary(
 
         # Get total employees
         emp_resp = supabase.table("employees").select("employee_id", count="exact").eq("is_active", True).execute()
+        active_employee_ids = {emp["employee_id"] for emp in (emp_resp.data or [])}
         total_employees = emp_resp.count or len(emp_resp.data)
 
         # Get attendance logs
@@ -634,7 +687,10 @@ def get_report_summary(
             .execute()
         )
 
-        logs = att_resp.data
+        logs = [
+            log for log in (att_resp.data or [])
+            if log.get("employee_id") in active_employee_ids
+        ]
 
         # Calculate days in period
         delta = now - start
@@ -881,6 +937,8 @@ def rebuild_embeddings():
             realtime_system.attendance_service.load_embeddings()
             
         return {"status": "success", "message": "Rebuilt and reloaded embeddings successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -902,7 +960,9 @@ def reload_embeddings():
 
 class SettingsSchema(BaseModel):
     work_start_time: str
+    work_end_time: str
     allow_late_minutes: int
+    allow_early_minutes: int
     cooldown_seconds: int
     recognition_threshold: float
     camera_source_type: str
@@ -915,7 +975,9 @@ def get_settings():
         from src import config
         return {
             "work_start_time": config.WORK_START_TIME,
+            "work_end_time": config.WORK_END_TIME,
             "allow_late_minutes": config.ALLOW_LATE_MINUTES,
+            "allow_early_minutes": config.ALLOW_EARLY_MINUTES,
             "cooldown_seconds": config.COOLDOWN_SECONDS,
             "recognition_threshold": config.RECOGNITION_THRESHOLD,
             "camera_source_type": config.CAMERA_SOURCE_TYPE,
@@ -932,7 +994,9 @@ def update_settings(req: SettingsSchema):
         config_path = os.path.join(config_dir, "config.json")
         payload = {
             "work_start_time": req.work_start_time,
+            "work_end_time": req.work_end_time,
             "allow_late_minutes": req.allow_late_minutes,
+            "allow_early_minutes": req.allow_early_minutes,
             "cooldown_seconds": req.cooldown_seconds,
             "recognition_threshold": req.recognition_threshold,
             "camera_source_type": req.camera_source_type,
@@ -945,7 +1009,9 @@ def update_settings(req: SettingsSchema):
         # Update in-memory variables to avoid server restart
         from src import config
         config.WORK_START_TIME = req.work_start_time
+        config.WORK_END_TIME = req.work_end_time
         config.ALLOW_LATE_MINUTES = req.allow_late_minutes
+        config.ALLOW_EARLY_MINUTES = req.allow_early_minutes
         config.COOLDOWN_SECONDS = req.cooldown_seconds
         config.RECOGNITION_THRESHOLD = req.recognition_threshold
         config.CAMERA_SOURCE_TYPE = req.camera_source_type

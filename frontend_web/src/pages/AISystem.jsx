@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2, Database, Shield, Cpu, CheckCircle2, AlertCircle } from 'lucide-react';
 import { listEmbeddings, deleteEmbedding, rebuildEmbeddings, getModelInfo } from '../api';
 
+function formatStoredTime(value) {
+  if (!value) return '—';
+  return String(value).replace('T', ' ').replace(/\.\d+.*$/, '').replace(/\+.*$/, '');
+}
+
 export default function AISystem() {
   const [tab, setTab] = useState('embeddings');
   const [embeddings, setEmbeddings] = useState([]);
@@ -129,7 +134,7 @@ export default function AISystem() {
                       <td><span className="badge badge-info">{emb.image_count || 0} ảnh chân dung</span></td>
                       <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>512-dim</td>
                       <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {emb.updated_at ? new Date(emb.updated_at).toLocaleString('vi-VN') : '—'}
+                        {formatStoredTime(emb.updated_at)}
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <button

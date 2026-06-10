@@ -47,28 +47,6 @@ function getNextEmployeeId(employees) {
   return `NV${String(nextNumber).padStart(3, '0')}`;
 }
 
-async function deleteEmployeeAssets(employeeId) {
-  const endpoints = [
-    `${API_BASE}/api/embeddings/${encodeURIComponent(employeeId)}`,
-    `${API_BASE}/api/portraits/${encodeURIComponent(employeeId)}`,
-    `${API_BASE}/api/employees/${encodeURIComponent(employeeId)}/embedding`
-  ];
-
-  const results = [];
-
-  for (const url of endpoints) {
-    try {
-      const res = await fetch(url, { method: 'DELETE' });
-      results.push({ url, ok: res.ok, status: res.status });
-    } catch (err) {
-      results.push({ url, ok: false, error: err.message });
-    }
-  }
-
-  return results;
-}
-
-
 function Avatar({ employeeId, fullName, size = 48 }) {
   const name = fullName || 'User';
 
@@ -479,8 +457,6 @@ export default function Employees() {
     setNotice(null);
 
     try {
-      await deleteEmployeeAssets(id);
-
       const res = await deleteEmployee(id);
 
       if (res?.error) {
@@ -489,7 +465,7 @@ export default function Employees() {
 
       setNotice({
         type: 'success',
-        message: `Đã xóa nhân viên ${id}, kèm embedding và ảnh mẫu nếu backend có endpoint hỗ trợ.`
+        message: `Đã xóa vĩnh viễn nhân viên ${id} khỏi Supabase, kèm embedding, log chấm công và ảnh mẫu.`
       });
       setDeleteTarget(null);
       load();
@@ -1169,7 +1145,7 @@ export default function Employees() {
                 fontSize: '0.77rem',
                 lineHeight: 1.5
               }}>
-                Lưu ý: nếu backend chưa có API xóa embedding/ảnh, hãy thêm route DELETE tương ứng. Frontend đã thử gọi các endpoint phổ biến trước khi xóa hồ sơ.
+                Khi xóa, backend sẽ xóa vĩnh viễn hồ sơ khỏi Supabase và dọn kèm embedding, log chấm công, ảnh mẫu local, ảnh trong Supabase Storage.
               </div>
             </div>
 
