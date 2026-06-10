@@ -124,6 +124,27 @@ function getLocalDateKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function parseStoredWallTime(value) {
+  if (!value) return null;
+  const normalized = String(value).replace(/([+-]\d{2}:?\d{2}|Z)$/, '');
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatStoredTime(value) {
+  const raw = String(value || '');
+  const time = raw.includes('T') ? raw.split('T')[1] : raw.split(' ')[1];
+  return time ? time.replace(/([+-]\d{2}:?\d{2}|Z).*$/, '').slice(0, 8) : '---';
+}
+
+function formatStoredDate(value) {
+  const raw = String(value || '');
+  const date = raw.includes('T') ? raw.split('T')[0] : raw.split(' ')[0];
+  if (!date) return '---';
+  const [year, month, day] = date.split('-');
+  return year && month && day ? `${day}/${month}/${year}` : date;
+}
+
 function Portrait({ empId, name, size = 40, backend = 'http://localhost:8000' }) {
   return (
     <img
@@ -150,7 +171,7 @@ export default function RealtimeAttendance() {
   const [currentFace, setCurrentFace] = useState(null);
   const [currentFaceTs, setCurrentFaceTs] = useState(null);
   const [stats, setStats] = useState({ present: 0, late: 0, earlyLeave: 0, absent: 0, total: 0, rate: 0 });
-  const [policy, setPolicy] = useState({ work_start_time: '08:00', work_end_time: '17:30', allow_late_minutes: 15, allow_early_minutes: 15 });
+  const [policy, setPolicy] = useState({ work_start_time: '08:00', work_end_time: '17:30', allow_late_minutes: 15, allow_early_minutes: 15, recognition_threshold: 0.5 });
   const [streamUrl, setStreamUrl] = useState(`${BACKEND}/api/attendance/stream?t=${Date.now()}`);
   const [now, setNow] = useState(new Date());
   const [earlyLeavePopup, setEarlyLeavePopup] = useState(null);
@@ -176,6 +197,7 @@ export default function RealtimeAttendance() {
           work_end_time: res.work_end_time || '17:30',
           allow_late_minutes: res.allow_late_minutes ?? 15,
           allow_early_minutes: res.allow_early_minutes ?? 15,
+          recognition_threshold: res.recognition_threshold ?? 0.5,
         }));
       }
     }).catch(() => { });
@@ -253,8 +275,8 @@ export default function RealtimeAttendance() {
     const latestEarlyLeave = logs.find(log => log.status === 'EARLY_LEAVE');
     if (!latestEarlyLeave?.check_time) return;
 
-    const checkTime = new Date(latestEarlyLeave.check_time);
-    if (Number.isNaN(checkTime.getTime()) || Date.now() - checkTime.getTime() > 10000) return;
+    const checkTime = parseStoredWallTime(latestEarlyLeave.check_time);
+    if (!checkTime || Date.now() - checkTime.getTime() > 10000) return;
 
     const popupKey = latestEarlyLeave.attendance_id || `${latestEarlyLeave.employee_id}-${latestEarlyLeave.check_time}`;
     if (earlyLeavePopupRef.current.lastKey === popupKey) return;
@@ -273,17 +295,18 @@ export default function RealtimeAttendance() {
 
   const formatTime = (iso) => {
     if (!iso) return '—';
-    try { return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+    try { return formatStoredTime(iso); }
     catch { return iso.slice(11, 19); }
   };
   const formatDate = (iso) => {
     if (!iso) return '—';
-    try { return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    try { return formatStoredDate(iso); }
     catch { return iso.slice(0, 10); }
   };
 
   const latestLog = logs[0] || null;
-  const isRecent = latestLog ? (new Date() - new Date(latestLog.check_time)) < 8000 : false;
+  const latestLogTime = latestLog ? parseStoredWallTime(latestLog.check_time) : null;
+  const isRecent = latestLogTime ? (new Date() - latestLogTime) < 8000 : false;
 
   // Current face data — resolve employee_id from logs by name match
   const faceEmpId = currentFace
@@ -506,7 +529,7 @@ export default function RealtimeAttendance() {
                   </div>
                   <div>MODEL: InsightFace ResNet50</div>
                   <div>DEVICE ID: {selectedCameraId.toUpperCase()}</div>
-                  <div>FPS: ~30.0 | THRESHOLD: 45%</div>
+                  <div>FPS: ~30.0 | THRESHOLD: {Math.round((policy.recognition_threshold || 0.5) * 100)}%</div>
                 </div>
 
                 {/* Info Hud Box (Top Left) */}

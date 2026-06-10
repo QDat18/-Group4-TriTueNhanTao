@@ -9,7 +9,7 @@ export default function Settings() {
     allow_late_minutes: 30,
     allow_early_minutes: 15,
     cooldown_seconds: 43200,
-    recognition_threshold: 0.45,
+    recognition_threshold: 0.5,
     camera_source_type: 'webcam',
     camera_webcam_index: 0,
     camera_ip_url: ''
@@ -28,7 +28,7 @@ export default function Settings() {
           allow_late_minutes: res.allow_late_minutes !== undefined ? res.allow_late_minutes : 30,
           allow_early_minutes: res.allow_early_minutes !== undefined ? res.allow_early_minutes : 15,
           cooldown_seconds: res.cooldown_seconds !== undefined ? res.cooldown_seconds : 43200,
-          recognition_threshold: res.recognition_threshold !== undefined ? res.recognition_threshold : 0.45,
+          recognition_threshold: res.recognition_threshold !== undefined ? res.recognition_threshold : 0.5,
           camera_source_type: res.camera_source_type || 'webcam',
           camera_webcam_index: res.camera_webcam_index !== undefined ? res.camera_webcam_index : 0,
           camera_ip_url: res.camera_ip_url || ''
@@ -50,7 +50,7 @@ export default function Settings() {
       allow_late_minutes: parseInt(form.allow_late_minutes) || 0,
       allow_early_minutes: parseInt(form.allow_early_minutes) || 0,
       cooldown_seconds: parseInt(form.cooldown_seconds) || 0,
-      recognition_threshold: parseFloat(form.recognition_threshold) || 0.45,
+      recognition_threshold: parseFloat(form.recognition_threshold) || 0.5,
       camera_source_type: form.camera_source_type,
       camera_webcam_index: parseInt(form.camera_webcam_index) || 0,
       camera_ip_url: form.camera_ip_url

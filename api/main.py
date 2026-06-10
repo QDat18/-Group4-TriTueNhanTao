@@ -66,6 +66,10 @@ def get_cached_data(cache_key):
 def set_cached_data(cache_key, val, ttl_seconds=3.0):
     query_cache[cache_key] = (val, time.time() + ttl_seconds)
 
+def vietnam_wall_time_iso(dt=None):
+    dt = dt or (datetime.now(timezone.utc) + timedelta(hours=7))
+    return dt.replace(tzinfo=None).isoformat()
+
 def clear_query_cache():
     query_cache.clear()
 
@@ -123,10 +127,9 @@ def parse_isoformat(dt_str: str) -> datetime:
     return datetime.fromisoformat(dt_str)
 
 def local_date_bounds_utc(date_str: str):
-    local_start = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    utc_start = local_start - timedelta(hours=7)
-    utc_end = utc_start + timedelta(days=1)
-    return utc_start.isoformat(), utc_end.isoformat()
+    local_start = datetime.strptime(date_str, "%Y-%m-%d")
+    local_end = local_start + timedelta(days=1)
+    return local_start.isoformat(), local_end.isoformat()
 
 def today_local_bounds_utc():
     today = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime("%Y-%m-%d")
@@ -246,8 +249,7 @@ def get_dashboard_stats():
         for log in today_logs:
             if log["status"] == "SUCCESS":
                 check_time = parse_isoformat(log["check_time"])
-                # Convert to local time (UTC+7)
-                local_time = check_time + timedelta(hours=7)
+                local_time = check_time
                 if local_time.hour > 8 or (local_time.hour == 8 and local_time.minute > 30):
                     late_count += 1
 
@@ -276,7 +278,7 @@ def get_attendance_chart(days: int = 30):
         emp_resp = supabase.table("employees").select("employee_id").eq("is_active", True).execute()
         active_employee_ids = {emp["employee_id"] for emp in (emp_resp.data or [])}
 
-        start_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        start_date = vietnam_wall_time_iso((datetime.now(timezone.utc) + timedelta(hours=7)) - timedelta(days=days))
         resp = (
             supabase.table("attendance_logs")
             .select("employee_id, check_time, status")
@@ -426,6 +428,7 @@ def create_employee(employee: EmployeeCreate):
         payload = employee.model_dump(exclude_none=True)
         # Luôn set is_active=True để reactivate nhân viên đã bị xóa mềm
         payload["is_active"] = True
+        payload["created_at"] = vietnam_wall_time_iso()
         supabase.table("employees").upsert(payload).execute()
         return {"message": "Employee created", "employee_id": employee.employee_id}
     except Exception as e:
@@ -665,7 +668,7 @@ def get_report_summary(
         return cached
 
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc) + timedelta(hours=7)
         if period == "day":
             start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         elif period == "week":
@@ -708,7 +711,7 @@ def get_report_summary(
 
                 # Check late
                 check_time = parse_isoformat(log["check_time"])
-                local_time = check_time + timedelta(hours=7)
+                local_time = check_time
                 if local_time.hour > 8 or (local_time.hour == 8 and local_time.minute > 30):
                     late_set.add(f"{date}_{log['employee_id']}")
 
@@ -869,7 +872,8 @@ def start_registration(req: RegisterStartRequest):
             "employee_id": req.employee_id,
             "full_name": req.full_name,
             "department": req.department,
-            "position": req.position
+            "position": req.position,
+            "created_at": vietnam_wall_time_iso()
         }
         supabase.table("employees").upsert(payload).execute()
         
@@ -1237,8 +1241,8 @@ def run_end_of_day_attendance_update():
     start_of_day_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_day_local = now_local.replace(hour=23, minute=59, second=50, microsecond=0)
 
-    start_of_day_utc = (start_of_day_local - timedelta(hours=7)).isoformat()
-    end_of_day_utc = (end_of_day_local - timedelta(hours=7)).isoformat()
+    start_of_day = vietnam_wall_time_iso(start_of_day_local)
+    end_of_day = vietnam_wall_time_iso(end_of_day_local)
 
     try:
         emp_resp = supabase.table("employees").select("employee_id").eq("is_active", True).execute()
@@ -1254,8 +1258,8 @@ def run_end_of_day_attendance_update():
         logs_resp = (
             supabase.table("attendance_logs")
             .select("employee_id, status")
-            .gte("check_time", start_of_day_utc)
-            .lte("check_time", end_of_day_utc)
+            .gte("check_time", start_of_day)
+            .lte("check_time", end_of_day)
             .execute()
         )
         logs_today = logs_resp.data
@@ -1286,7 +1290,7 @@ def run_end_of_day_attendance_update():
                 "status": "ABSENT",
                 "similarity": 0.0,
                 "camera_id": "SYSTEM",
-                "check_time": end_of_day_utc
+                "check_time": end_of_day
             }
         elif has_in and not has_out:
             payload = {
@@ -1294,7 +1298,7 @@ def run_end_of_day_attendance_update():
                 "status": "MISSING_CHECK_OUT",
                 "similarity": 0.0,
                 "camera_id": "SYSTEM",
-                "check_time": end_of_day_utc
+                "check_time": end_of_day
             }
 
         if payload:

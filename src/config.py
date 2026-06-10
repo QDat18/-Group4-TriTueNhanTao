@@ -112,7 +112,7 @@ ATTENDANCE_DB_PATH = "attendance.db"
 import json
 
 # Default settings
-RECOGNITION_THRESHOLD = 0.35
+RECOGNITION_THRESHOLD = 0.50
 COOLDOWN_SECONDS = 43200
 WORK_START_TIME = "08:00"
 WORK_END_TIME = "17:30"        # ← THÊM MỚI: giờ tan ca

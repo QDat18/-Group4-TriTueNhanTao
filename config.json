@@ -1,10 +1,10 @@
 {
     "work_start_time": "08:00",
-    "work_end_time": "17:30",
+    "work_end_time": "17:00",
     "allow_late_minutes": 5,
     "allow_early_minutes": 15,
     "cooldown_seconds": 43200,
-    "recognition_threshold": 0.35,
+    "recognition_threshold": 0.5,
     "camera_source_type": "webcam",
     "camera_webcam_index": 0,
     "camera_ip_url": "192.168.0.108:4747/video"

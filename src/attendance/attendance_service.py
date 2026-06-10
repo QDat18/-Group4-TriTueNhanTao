@@ -46,13 +46,17 @@ class AttendanceService:
     def _local_now(self):
         return datetime.now(timezone.utc) + timedelta(hours=7)
 
+    def _local_wall_time_iso(self, local_dt=None):
+        local_dt = local_dt or self._local_now()
+        return local_dt.replace(tzinfo=None).isoformat()
+
     def _local_day_bounds_utc(self, local_dt=None):
         local_dt = local_dt or self._local_now()
         start_local = local_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         end_local = start_local + timedelta(days=1)
         return (
-            (start_local - timedelta(hours=7)).isoformat(),
-            (end_local - timedelta(hours=7)).isoformat()
+            self._local_wall_time_iso(start_local),
+            self._local_wall_time_iso(end_local)
         )
 
     def _reset_daily_state_if_needed(self):
@@ -65,7 +69,7 @@ class AttendanceService:
 
     def _same_local_day(self, utc_naive_dt, local_dt=None):
         local_dt = local_dt or self._local_now()
-        return (utc_naive_dt + timedelta(hours=7)).date() == local_dt.date()
+        return utc_naive_dt.date() == local_dt.date()
 
     def load_embeddings(self):
         response = (
@@ -140,12 +144,12 @@ class AttendanceService:
 
     def check_cooldown(self, employee_id):
         self._reset_daily_state_if_needed()
-        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
         now_local = self._local_now()
+        now_local_naive = now_local.replace(tzinfo=None)
         if employee_id in self.last_check_in_cache:
             last_time = self.last_check_in_cache[employee_id]
             if self._same_local_day(last_time, now_local):
-                delta = now_utc - last_time
+                delta = now_local_naive - last_time
                 remaining = config.COOLDOWN_SECONDS - delta.total_seconds()
                 if remaining > 0:
                     return False, last_time, remaining
@@ -171,7 +175,7 @@ class AttendanceService:
                 return True, None, 0
 
             last_time = parse_isoformat(response.data[0]["check_time"]).replace(tzinfo=None)
-            delta = now_utc - last_time
+            delta = now_local_naive - last_time
             remaining = config.COOLDOWN_SECONDS - delta.total_seconds()
 
             self.last_check_in_cache[employee_id] = last_time
@@ -300,12 +304,12 @@ class AttendanceService:
                     if last_was_in and new_is_out:
                         # Calculate time difference
                         last_log_time = parse_isoformat(today_logs[-1]["check_time"])
-                        diff_seconds = (now_local - (last_log_time + timedelta(hours=7))).total_seconds()
+                        diff_seconds = (now_local - last_log_time).total_seconds()
                         if diff_seconds >= 15:
                             is_transition = True
 
                 if not is_transition:
-                    local_last = (last_time or datetime.now(timezone.utc).replace(tzinfo=None)) + timedelta(hours=7)
+                    local_last = last_time or self._local_now().replace(tzinfo=None)
                     return {
                         "success": False,
                         "reason": "COOLDOWN",
@@ -319,11 +323,12 @@ class AttendanceService:
                 "employee_id": employee_id,
                 "similarity":  similarity,
                 "camera_id":   camera_id,
-                "status":      status
+                "status":      status,
+                "check_time":  self._local_wall_time_iso(now_local)
             }
             try:
                 supabase.table("attendance_logs").insert(payload).execute()
-                self.last_check_in_cache[employee_id] = datetime.now(timezone.utc).replace(tzinfo=None)
+                self.last_check_in_cache[employee_id] = now_local.replace(tzinfo=None)
                 if status in ("SUCCESS", "LATE"):
                     self.check_in_display_until[employee_id] = (
                         datetime.now(timezone.utc) + timedelta(seconds=12)
