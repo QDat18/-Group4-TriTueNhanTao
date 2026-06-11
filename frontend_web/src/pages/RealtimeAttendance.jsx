@@ -175,11 +175,13 @@ export default function RealtimeAttendance() {
   const [streamUrl, setStreamUrl] = useState(`${BACKEND}/api/attendance/stream?t=${Date.now()}`);
   const [now, setNow] = useState(new Date());
   const [earlyLeavePopup, setEarlyLeavePopup] = useState(null);
+  const [earlyLeaveConfirm, setEarlyLeaveConfirm] = useState(null);
 
   const pollIntervalRef = useRef(null);
   const facePollRef = useRef(null);
   const clockRef = useRef(null);
-  const earlyLeavePopupRef = useRef({ lastKey: null, timer: null });
+  const earlyLeavePopupRef = useRef({ lastKey: null, timer: null, confirmedKey: null });
+  const earlyLeaveCancelRef = useRef({});
 
   // Live clock
   useEffect(() => {
@@ -282,11 +284,22 @@ export default function RealtimeAttendance() {
     if (earlyLeavePopupRef.current.lastKey === popupKey) return;
 
     earlyLeavePopupRef.current.lastKey = popupKey;
-    window.clearTimeout(earlyLeavePopupRef.current.timer);
-    setEarlyLeavePopup(latestEarlyLeave);
-    earlyLeavePopupRef.current.timer = window.setTimeout(() => {
-      setEarlyLeavePopup(null);
-    }, 8000);
+    const canceledUntil = earlyLeaveCancelRef.current[latestEarlyLeave.employee_id] || 0;
+    if (Date.now() < canceledUntil) {
+      if (latestEarlyLeave.attendance_id) {
+        fetch(`${BACKEND}/api/attendance/${latestEarlyLeave.attendance_id}`, { method: 'DELETE' })
+          .then(loadData)
+          .catch(err => console.error('Error deleting canceled early leave log:', err));
+      }
+      setCurrentFace(prev => {
+        if (!prev) return prev;
+        const samePerson = prev.full_name === latestEarlyLeave.full_name;
+        return samePerson ? { ...prev, status: 'SUCCESS' } : prev;
+      });
+      return;
+    }
+
+    setEarlyLeaveConfirm({ key: popupKey, log: latestEarlyLeave });
   }, [logs]);
 
   useEffect(() => {
@@ -304,6 +317,44 @@ export default function RealtimeAttendance() {
     catch { return iso.slice(0, 10); }
   };
 
+  const confirmEarlyLeave = () => {
+    if (!earlyLeaveConfirm?.log) return;
+    const log = earlyLeaveConfirm.log;
+    earlyLeavePopupRef.current.confirmedKey = earlyLeaveConfirm.key;
+    window.clearTimeout(earlyLeavePopupRef.current.timer);
+    setEarlyLeavePopup(log);
+    setEarlyLeaveConfirm(null);
+    if (log.attendance_id) {
+      fetch(`${BACKEND}/api/attendance/${log.attendance_id}/confirm-early-leave`, { method: 'POST' })
+        .then(loadData)
+        .catch(err => console.error('Error confirming early leave:', err));
+    }
+    earlyLeavePopupRef.current.timer = window.setTimeout(() => {
+      setEarlyLeavePopup(null);
+    }, 20000);
+  };
+
+  const dismissEarlyLeaveConfirm = async () => {
+    const log = earlyLeaveConfirm?.log;
+    setEarlyLeaveConfirm(null);
+    if (log?.employee_id) {
+      earlyLeaveCancelRef.current[log.employee_id] = Date.now() + 90000;
+    }
+    if (log?.attendance_id) {
+      try {
+        await fetch(`${BACKEND}/api/attendance/${log.attendance_id}`, { method: 'DELETE' });
+        loadData();
+        setCurrentFace(prev => {
+          if (!prev) return prev;
+          const samePerson = prev.full_name === log.full_name || faceEmpId === log.employee_id;
+          return samePerson && prev.status === 'COMPLETED' ? { ...prev, status: 'SUCCESS' } : prev;
+        });
+      } catch (err) {
+        console.error('Error canceling early leave log:', err);
+      }
+    }
+  };
+
   const latestLog = logs[0] || null;
   const latestLogTime = latestLog ? parseStoredWallTime(latestLog.check_time) : null;
   const isRecent = latestLogTime ? (new Date() - latestLogTime) < 8000 : false;
@@ -313,9 +364,17 @@ export default function RealtimeAttendance() {
     ? (logs.find(l => l.full_name === currentFace.full_name)?.employee_id || null)
     : null;
 
+  const isConfirmingCurrentFace = Boolean(
+    currentFace && earlyLeaveConfirm && (
+      currentFace.full_name === earlyLeaveConfirm.log.full_name ||
+      faceEmpId === earlyLeaveConfirm.log.employee_id
+    )
+  );
+  const displayedFaceStatus = isConfirmingCurrentFace ? 'EARLY_LEAVE' : currentFace?.status;
+
   // Determine face ring color
   const ringColor = currentFace
-    ? (STATUS_CONFIG[currentFace.status]?.color || '#94a3b8')
+    ? (STATUS_CONFIG[displayedFaceStatus]?.color || '#94a3b8')
     : '#334155';
 
   const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -556,6 +615,61 @@ export default function RealtimeAttendance() {
                     MATCH: <strong>{latestLog.full_name}</strong> ({Math.round((latestLog.similarity || 0.8) * 100)}%)
                   </div>
                 )}
+
+                {earlyLeaveConfirm && (
+                  <div style={{
+                    position: 'absolute', left: '50%', bottom: '1.25rem', transform: 'translateX(-50%)',
+                    zIndex: 20, width: 'min(520px, calc(100% - 2rem))',
+                    background: 'rgba(255, 247, 237, 0.96)', color: '#9a3412',
+                    border: '1px solid #fb923c', borderLeft: '5px solid #f97316',
+                    borderRadius: '12px', padding: '0.95rem 1rem',
+                    boxShadow: '0 18px 45px rgba(0,0,0,0.32)',
+                    backdropFilter: 'blur(8px)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%', background: '#ffedd5',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                      }}>
+                        <TrendingDown size={20} color="#ea580c" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.74rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>
+                          Xac nhan check-out ve som
+                        </div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 850, color: '#7c2d12', lineHeight: 1.35 }}>
+                          {earlyLeaveConfirm.log.full_name || earlyLeaveConfirm.log.employee_id || 'Nhan vien'} muon ra ve truoc gio quy dinh?
+                        </div>
+                        <div style={{ marginTop: '0.3rem', fontSize: '0.78rem', fontWeight: 650 }}>
+                          Gio tan lam: <strong>{policy.work_end_time}</strong> | Check-out: <strong>{formatTime(earlyLeaveConfirm.log.check_time)}</strong>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginTop: '0.85rem' }}>
+                      <button
+                        type="button"
+                        onClick={dismissEarlyLeaveConfirm}
+                        style={{
+                          height: 36, borderRadius: '8px', border: '1px solid #fdba74',
+                          background: '#fff7ed', color: '#9a3412', fontWeight: 800, cursor: 'pointer'
+                        }}
+                      >
+                        Khong xac nhan
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmEarlyLeave}
+                        style={{
+                          height: 36, borderRadius: '8px', border: '1px solid #ea580c',
+                          background: '#f97316', color: '#fff', fontWeight: 900, cursor: 'pointer',
+                          boxShadow: '0 8px 18px rgba(249, 115, 22, 0.28)'
+                        }}
+                      >
+                        Xac nhan ve som
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, padding: '3rem', color: '#475569', textAlign: 'center' }}>
@@ -630,7 +744,7 @@ export default function RealtimeAttendance() {
                   borderRadius: '50%', background: ringColor, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   border: '2px solid #fff', boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
                 }}>
-                  <StatusIcon status={currentFace.status} size={10} color="#fff" />
+                  <StatusIcon status={displayedFaceStatus} size={10} color="#fff" />
                 </div>
               </div>
 
@@ -653,41 +767,41 @@ export default function RealtimeAttendance() {
 
               {/* Status Tag */}
               <div style={{ transform: 'scale(1.05)', margin: '0.2rem 0' }}>
-                <StatusBadge status={currentFace.status} size="lg" />
+                <StatusBadge status={displayedFaceStatus} size="lg" />
               </div>
 
               {/* Dynamic Notification notes */}
-              {currentFace.status === 'LATE' && (
+              {displayedFaceStatus === 'LATE' && (
                 <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b45309', fontWeight: 600, textAlign: 'center', width: '100%' }}>
                   ⏰ Đi muộn so với giờ quy định ({policy.work_start_time})
                 </div>
               )}
-              {currentFace.status === 'EARLY_LEAVE' && (
+              {displayedFaceStatus === 'EARLY_LEAVE' && (
                 <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#c2410c', fontWeight: 600, textAlign: 'center', width: '100%' }}>
                   🏃 Về trước giờ tan làm theo quy định ({policy.work_end_time})
                 </div>
               )}
-              {currentFace.status === 'UNKNOWN' && (
+              {displayedFaceStatus === 'UNKNOWN' && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, textAlign: 'center', width: '100%' }}>
                   ❌ Gương mặt không khớp dữ liệu nhân viên
                 </div>
               )}
-              {currentFace.status === 'SPOOFING' && (
+              {displayedFaceStatus === 'SPOOFING' && (
                 <div style={{ background: '#fef2f2', border: '1px solid #f87171', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 700, textAlign: 'center', width: '100%' }}>
                   🚨 CẢNH BÁO: Phát hiện ảnh chụp/video giả mạo!
                 </div>
               )}
-              {currentFace.status === 'REJECTED_CHECK_IN' && (
+              {displayedFaceStatus === 'REJECTED_CHECK_IN' && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, textAlign: 'center', width: '100%' }}>
                   ❌ Từ chối check-in: Đã quá thời gian quy định (sau 12:00)
                 </div>
               )}
-              {currentFace.status === 'REJECTED_CHECK_OUT' && (
+              {displayedFaceStatus === 'REJECTED_CHECK_OUT' && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, textAlign: 'center', width: '100%' }}>
                   ❌ Từ chối check-out: Chưa đến thời gian quy định (trước 12:00)
                 </div>
               )}
-              {currentFace.status === 'COMPLETED' && (
+              {displayedFaceStatus === 'COMPLETED' && (
                 <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#047857', fontWeight: 600, textAlign: 'center', width: '100%' }}>
                   ✅ Đã hoàn tất cả check-in và check-out hôm nay!
                 </div>

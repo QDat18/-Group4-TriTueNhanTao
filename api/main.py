@@ -539,6 +539,82 @@ def get_attendance_logs(
 # EMBEDDINGS
 # ════════════════════════════════════════
 
+@app.delete("/api/attendance/{attendance_id}", dependencies=[Depends(verify_api_key)])
+def delete_attendance_log(attendance_id: int):
+    """Delete one attendance log and clear realtime/cache state for that employee."""
+    try:
+        existing = (
+            supabase.table("attendance_logs")
+            .select("attendance_id, employee_id, status")
+            .eq("attendance_id", attendance_id)
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            return {"message": "Attendance log already deleted", "attendance_id": attendance_id}
+
+        row = existing.data[0]
+        employee_id = row.get("employee_id")
+
+        supabase.table("attendance_logs").delete().eq("attendance_id", attendance_id).execute()
+        clear_query_cache()
+
+        global realtime_system
+        if realtime_system is not None and employee_id:
+            service = getattr(realtime_system, "attendance_service", None)
+            if service is not None:
+                if hasattr(service, "reject_early_leave"):
+                    service.reject_early_leave(employee_id, seconds=90)
+                else:
+                    service.last_check_in_cache.pop(employee_id, None)
+                service.check_in_display_until.pop(employee_id, None)
+
+        return {
+            "message": "Attendance log deleted",
+            "attendance_id": attendance_id,
+            "employee_id": employee_id,
+            "status": row.get("status"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/attendance/{attendance_id}/confirm-early-leave", dependencies=[Depends(verify_api_key)])
+def confirm_early_leave_log(attendance_id: int):
+    """Confirm an early check-out log so realtime status can become completed."""
+    try:
+        existing = (
+            supabase.table("attendance_logs")
+            .select("attendance_id, employee_id, status")
+            .eq("attendance_id", attendance_id)
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Attendance log not found")
+
+        row = existing.data[0]
+        employee_id = row.get("employee_id")
+
+        global realtime_system
+        if realtime_system is not None and employee_id:
+            service = getattr(realtime_system, "attendance_service", None)
+            if service is not None and hasattr(service, "confirm_early_leave"):
+                service.confirm_early_leave(employee_id)
+
+        clear_query_cache()
+        return {
+            "message": "Early leave confirmed",
+            "attendance_id": attendance_id,
+            "employee_id": employee_id,
+            "status": row.get("status"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/embeddings")
 def list_embeddings():
     """List all face embeddings, deduplicated by employee_id (keeping the latest one)."""

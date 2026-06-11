@@ -40,6 +40,8 @@ class AttendanceService:
         self.faiss_index = None
         self.last_check_in_cache = {}
         self.check_in_display_until = {}
+        self.early_leave_pending_until = {}
+        self.early_leave_rejected_until = {}
         self.current_local_date = self._local_now().date()
         self.load_embeddings()
 
@@ -64,8 +66,20 @@ class AttendanceService:
         if today != self.current_local_date:
             self.last_check_in_cache.clear()
             self.check_in_display_until.clear()
+            self.early_leave_pending_until.clear()
+            self.early_leave_rejected_until.clear()
             self.current_local_date = today
             print(f"[AttendanceService] Reset daily attendance cache for {today}.")
+
+    def confirm_early_leave(self, employee_id):
+        self.early_leave_pending_until.pop(employee_id, None)
+        self.early_leave_rejected_until.pop(employee_id, None)
+
+    def reject_early_leave(self, employee_id, seconds=120):
+        now_utc = datetime.now(timezone.utc)
+        self.early_leave_pending_until.pop(employee_id, None)
+        self.early_leave_rejected_until[employee_id] = now_utc + timedelta(seconds=seconds)
+        self.last_check_in_cache.pop(employee_id, None)
 
     def _same_local_day(self, utc_naive_dt, local_dt=None):
         local_dt = local_dt or self._local_now()
@@ -251,14 +265,29 @@ class AttendanceService:
         late_minutes = 0
         early_minutes = 0
         should_save = True
+        now_utc = datetime.now(timezone.utc)
+
+        pending_until = self.early_leave_pending_until.get(employee_id)
+
+        rejected_until = self.early_leave_rejected_until.get(employee_id)
+        if rejected_until and now_utc >= rejected_until:
+            self.early_leave_rejected_until.pop(employee_id, None)
+            rejected_until = None
 
         if has_checked_in and has_checked_out:
             # Rule 7: Đã check-in và đã check-out
-            status = "COMPLETED"
+            if pending_until:
+                status = "EARLY_LEAVE"
+                early_minutes = max(0, int((work_end - now_local).total_seconds() / 60))
+            else:
+                status = "COMPLETED"
             should_save = False
         elif has_checked_in and not has_checked_out:
             # Đã check-in, chưa check-out
-            if now_time < midday_time:
+            if rejected_until:
+                status = last_check_in_status
+                should_save = False
+            elif now_time < midday_time:
                 # Rule 4: Từ chối check-out
                 display_until = self.check_in_display_until.get(employee_id)
                 if display_until and datetime.now(timezone.utc) < display_until:
@@ -329,6 +358,8 @@ class AttendanceService:
             try:
                 supabase.table("attendance_logs").insert(payload).execute()
                 self.last_check_in_cache[employee_id] = now_local.replace(tzinfo=None)
+                if status == "EARLY_LEAVE":
+                    self.early_leave_pending_until[employee_id] = True
                 if status in ("SUCCESS", "LATE"):
                     self.check_in_display_until[employee_id] = (
                         datetime.now(timezone.utc) + timedelta(seconds=12)
