@@ -1,0 +1,129 @@
+-Group4-TriTueNhanTao/
+    config.json (252 bytes)
+    test_cam.py (562 bytes)
+    test_insight.py (174 bytes)
+    .devcontainer/
+        devcontainer.json (1084 bytes)
+    api/
+        auth.py (680 bytes)
+        main.py (49047 bytes)
+        __init__.py (15 bytes)
+    dataset/
+        in-house/
+            NV00/
+            NV001/
+            NV002/
+            NV004/
+            NV006/
+            NV007/
+            NV008/
+            NV009/
+            NV01/
+            NV010/
+            NV012/
+            NV013/
+            NV014/
+            NV017/
+            NV020/
+    frontend_streamlit/
+        api_client.py (4399 bytes)
+        app.py (4659 bytes)
+        pages/
+            ai_system.py (7874 bytes)
+            attendance_logs.py (2636 bytes)
+            cameras.py (3006 bytes)
+            dashboard.py (3454 bytes)
+            employees.py (5378 bytes)
+            face_registration.py (7685 bytes)
+            realtime_attendance.py (6473 bytes)
+            reports.py (2388 bytes)
+            settings.py (6563 bytes)
+            __init__.py (27 bytes)
+    frontend_web/
+        eslint.config.js (589 bytes)
+        index.html (621 bytes)
+        package.json (731 bytes)
+        public/
+        src/
+            api.js (3243 bytes)
+            App.jsx (1387 bytes)
+            index.css (26009 bytes)
+            main.jsx (239 bytes)
+            assets/
+            components/
+                Sidebar.jsx (2486 bytes)
+            pages/
+                AISystem.jsx (15358 bytes)
+                AttendanceLogs.jsx (10927 bytes)
+                Cameras.jsx (4489 bytes)
+                Dashboard.jsx (15875 bytes)
+                Employees.jsx (36433 bytes)
+                FaceRegistration.jsx (37288 bytes)
+                RealtimeAttendance.jsx (41166 bytes)
+                Reports.jsx (18881 bytes)
+                Settings.jsx (12374 bytes)
+    models/
+        arcface_head.py (2478 bytes)
+        face_recognition_model.py (5364 bytes)
+        __init__.py (48 bytes)
+    scratch/
+        generate_comparison.py (4139 bytes)
+        generate_roc_curves.py (8392 bytes)
+        list_all_code_files.py (1175 bytes)
+        read_docx.py (3262 bytes)
+        test_alignment.py (2918 bytes)
+        test_detection.py (2902 bytes)
+        test_normalization.py (3294 bytes)
+        test_quality.py (4991 bytes)
+    src/
+        config.py (4110 bytes)
+        test_vgg.py (700 bytes)
+        __init__.py (0 bytes)
+        anti_spoofing/
+            anti_spoofing.py (5271 bytes)
+        attendance/
+            align_face.py (1596 bytes)
+            attendance_service.py (13619 bytes)
+            build_embeddings.py (4311 bytes)
+            realtime_recognition.py (21870 bytes)
+            register_employee.py (6901 bytes)
+        capture/
+            capture_dataset.py (6936 bytes)
+            __init__.py (0 bytes)
+        database/
+            supabase_client.py (5207 bytes)
+        datasets/
+            check_dataset.py (1175 bytes)
+            dataset_rmfrd.py (5286 bytes)
+            dataset_vggface2.py (4991 bytes)
+            generate_split_files.py (2013 bytes)
+            stats_vggface2.py (6700 bytes)
+            __init__.py (0 bytes)
+        evaluation/
+            evaluate_afdb_masked.py (13004 bytes)
+            evaluate_benchmark.py (12918 bytes)
+            evaluate_insightface_pairs.py (7780 bytes)
+            evaluate_lbph.py (9573 bytes)
+            evaluate_mobilenetv2.py (9784 bytes)
+            evaluate_models.py (29616 bytes)
+            evaluate_pairs.py (7579 bytes)
+            evaluate_vggface2.py (19923 bytes)
+            evaluate_vgg_checkpoints.py (16669 bytes)
+        models/
+            arcface_head.py (2547 bytes)
+            face_recognition_model.py (6911 bytes)
+            insightface_model.py (1484 bytes)
+            test_models.py (272 bytes)
+            __init__.py (49 bytes)
+        training/
+            train_mobilenetv2_arcface.py (16493 bytes)
+            train_rmfrd.py (15547 bytes)
+            train_vggface2.py (18951 bytes)
+            __init__.py (0 bytes)
+        utils/
+            logger.py (1360 bytes)
+            transforms.py (1135 bytes)
+            warmup_scheduler.py (1595 bytes)
+            __init__.py (0 bytes)
+    tests/
+        test_core.py (9005 bytes)

@@ -1,0 +1,382 @@
+--- OUTLINE ---
+[Heading1] MỤC LỤC
+[Heading2] LỜI CẢM ƠN
+[Heading2] LỜI MỞ ĐẦU
+[Heading2] DANH MỤC HÌNH ẢNH
+[Heading2] DANH MỤC BẢNG BIỂU
+[Heading2] DANH MỤC TỪ VIẾT TẮT
+[Heading1] CHƯƠNG 1. TỔNG QUAN ĐỀ TÀI
+[Heading3] 1.1 Giới thiệu đề tài
+[Heading3] 1.2 Phát biểu bài toán
+[Heading4] 1.2.1 Bối cảnh bài toán
+[Heading4] 1.2.2 Input của hệ thống
+[Heading4] 1.2.3 Output của hệ thống
+[Heading4] 1.2.4 Thách thức của bài toán
+[Heading3] 1.3 Mục tiêu đề tài
+[Heading3] 1.4 Phạm vi thực hiện
+[Heading3] 1.5 Khả năng ứng dụng thực tế
+[Heading3] 1.6 Khảo sát các nghiên cứu liên quan
+[Heading4] 1.6.1 FaceNet
+[Heading4] 1.6.2 DeepFace
+[Heading4] 1.6.3 ArcFace
+[Heading4] 1.6.4 InsightFace
+[Heading4] 1.6.5 Các hệ thống chấm công bằng khuôn mặt hiện nay
+[Heading3] 1.7 Đề xuất giải pháp
+[Heading3] Tiểu kết chương I
+[Heading1] CHƯƠNG 2. DỮ LIỆU VÀ TIỀN XỬ LÝ DỮ LIỆU
+[Heading3] 2.1. Thu thập dữ liệu
+[Heading3] 2.2 Tiền xử lý dữ liệu
+[Heading4] 2.8.1 Face Detection
+[Heading4] 2.8.2 Face Alignment
+[Heading4] 2.8.3 Chuẩn hóa kích thước ảnh
+[Heading4] 2.8.4 Data Augmentation
+[Heading4] 2.8.5 Quality Filtering
+[Heading3] Tiểu kết chương II
+[Heading4] CHƯƠNG 3: XÂY DỰNG MÔ HÌNH NHẬN DIỆN KHUÔN MẶT DỰA TRÊN ARCFACE VÀ IRESNET-100
+[Heading4] 3.1. Trích chọn đặc trưng khuôn mặt
+[Heading4] 3.1.1. Mô hình iResNet-100
+[Heading4] 3.1.2. Sinh vector đặc trưng (Embedding 512 chiều)
+[Heading4] 3.1.3. Chuẩn hóa đặc trưng bằng L2 Normalization
+[Heading4] 3.2. Xây dựng mô hình ArcFace cho bài toán nhận diện khuôn mặt
+[Heading4] 3.2.1. Tổng quan về ArcFace
+[Heading4] 3.2.2. Hàm mất mát ArcFace (ArcFace Loss)
+[Heading4] 3.2.3. Cấu hình huấn luyện mô hình
+[Heading4] 3.2.4. Quy trình sinh embedding và xây dựng cơ sở dữ liệu khuôn mặt
+[Heading4] 3.3. Một số mô hình nhận diện khuôn mặt khác
+[Heading4] 3.3.1. FaceNet
+[Heading4] 3.3.2. CosFace
+[Heading4] 3.3.3. SphereFace
+[Heading3] Tiểu kết chương III
+[Heading1] CHƯƠNG 4. THỰC NGHIỆM VÀ ĐÁNH GIÁ
+[Heading3] 4.1 Môi trường thực nghiệm
+[Heading3] 4.2 Cấu hình phần cứng
+[Heading3] 4.3 Các độ đo đánh giá
+[Heading4] 4.3.1 Accuracy
+[Heading4] 4.3.2 Precision
+[Heading4] 4.3.3 Recall
+[Heading4] 4.3.4 F1-Score
+[Heading4] 4.3.5 FAR
+[Heading4] 4.3.6 FRR
+[Heading4] 4.3.7 EER
+[Heading3] 4.4 Kết quả huấn luyện
+[Heading3] 4.5 Kết quả nhận diện khuôn mặt
+[Heading3] 4.6 Kết quả Anti-Spoofing
+[Heading3] 4.7 Đánh giá trên dữ liệu thực tế
+[Heading3] 4.8 Xây dựng prototype hệ thống
+[Heading4] 4.8.1 Chức năng đăng ký nhân viên
+[Heading4] 4.8.2 Chức năng thu thập dữ liệu
+[Heading4] 4.8.3 Chức năng chấm công
+[Heading4] 4.8.4 Chức năng quản lý lịch sử chấm công
+[Heading3] 4.9 Đánh giá kết quả huấn luyện
+[Heading3] Tiểu kết chương IV
+[Heading1] KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
+[Heading3] 1. Kết quả đạt được
+[Heading3] 2. Hạn chế của đề tài
+[Heading3] 3. Hướng phát triển trong tương lai
+[Heading1] TÀI LIỆU THAM KHẢO
+[Heading1] PHỤ LỤC
+[Heading3] Phụ lục A. Source Code
+[Heading3] Phụ lục B. Cơ sở dữ liệu
+[Heading3] Phụ lục C. Hướng dẫn sử dụng hệ thống
+[Heading2] DANH MỤC TỪ VIẾT TẮT
+[Heading2] CHƯƠNG I.  TỔNG QUAN ĐỀ TÀI
+[Heading3] 1.1 Giới thiệu đề tài
+[Heading3] 1.2 Phát biểu bài toán
+[Heading4] 1.2.1 Bối cảnh bài toán
+[Heading4] 1.2.2 Bài toán AI của đề tài
+[Heading4] 1.2.3 Input của hệ thống
+[Heading4] 1.2.4 Output của hệ thống
+[Heading3] 1.3 Mục tiêu đề tài
+[Heading3] 1.4 Phạm vi thực hiện
+[Heading3] 1.5 Khả năng ứng dụng thực tế
+[Heading3] 1.6 Khảo sát các nghiên cứu liên quan
+[Heading4] 1.6.1 FaceNet
+[Heading4] 1.6.2 DeepFace Recognition
+[Heading4] 1.6.3 ArcFace
+[Heading4] 1.6.4 InsightFace
+[Heading4] 1.6.5 Các hệ thống chấm công bằng khuôn mặt hiện nay
+[Heading4] 1.6.6 Điểm khác biệt của đề tài
+[Heading3] Tiểu kết chương I
+[Heading2] CHƯƠNG II. Chuẩn bị dữ liệu
+[Heading3] 2.1 Thu thập dữ liệu
+[Heading4] 2.1.1 Tổng quan dữ liệu sử dụng
+[Heading2] Hình 2.1. Tổng quan các bộ dữ liệu được sử dụng trong đề tài
+[Heading2] Việc kết hợp nhiều nguồn dữ liệu khác nhau giúp mô hình có khả năng học được các đặc trưng đa dạng của khuôn mặt, đồng thời nâng cao khả năng hoạt động ổn định trong các điều kiện thực tế.
+[Heading2] 2.1.2.Dữ liệu có sẵn
+[Heading2] Bộ dữ liệu VGGFace2
+[Heading2] Hình 2.2. Minh họa một số ảnh trong bộ dữ liệu VGGFace2
+[Heading2] Real-World Masked Face Recognition Dataset (RMFRD) là bộ dữ liệu chuyên biệt phục vụ bài toán nhận diện khuôn mặt trong điều kiện đeo khẩu trang, phản ánh sát thực tế nhu cầu hậu đại dịch COVID-19.
+[Heading2] Đặc điểm thống kê: RMFRD cung cấp hơn 95.000 hình ảnh của nhiều chủ thể khác nhau, bao gồm đa dạng các loại khẩu trang và góc độ chụp trong điều kiện thực tế.
+[Heading2] Vai trò trong hệ thống: Mặc dù hệ thống chấm công ưu tiên yêu cầu tháo khẩu trang để đạt độ chính xác cao nhất, việc bổ sung RMFRD vào quá trình huấn luyện giúp mô hình tăng cường khả năng trích xuất đặc trưng tại vùng mắt và trán. Điều này đóng vai trò quan trọng trong việc nâng cao khả năng nhận diện khi khuôn mặt bị che khuất một phần (partial occlusion), đảm bảo tính linh hoạt của hệ thống.
+[Heading2] Tài liệu tham khảo: Anwar, A., & Raychowdhury, A. (2020). Masked Face Recognition for Secure Authentication. arXiv.
+[PotentialHeading] 2.1.3. Dữ liệu tự thu thập
+[PotentialHeading] Mục đích thu thập dữ liệu
+[PotentialHeading] 2.1.4. Gán nhãn và tổ chức lưu trữ dữ liệu
+[Heading3] a. Phương pháp gán nhãn dữ liệu
+[Heading3] b. Tổ chức lưu trữ dữ liệu
+[PotentialHeading] 2.2. Tiền xử lý dữ liệu
+[PotentialHeading] 2.2.1. Đặt vấn đề
+[PotentialHeading] 2.2.2. Kiểm tra chất lượng ảnh
+[Heading4] a. Đánh giá độ sắc nét (Độ mờ)
+[Heading4] b. Đánh giá điều kiện chiếu sáng (Độ sáng)
+[Heading4] c. Kiểm tra kích thước vật lý khuôn mặt
+[PotentialHeading] 2.2.3. Phát hiện và cắt khuôn mặt
+[PotentialHeading] 2.2.4. Căn chỉnh khuôn mặt
+[PotentialHeading] 2.2.5. Chuẩn hóa kích thước và giá trị điểm ảnh
+[Heading2] CHƯƠNG 3: XÂY DỰNG MÔ HÌNH NHẬN DIỆN KHUÔN MẶT
+[Heading2] 3.1. Trích chọn đặc trưng
+[Heading2] 3.1.1. Đặc trưng khuôn mặt trong bài toán nhận diện
+[Heading2] 3.1.2. Mô hình ResNet-50
+[Heading2] 3.1.3. Sinh vector đặc trưng khuôn mặt
+[Heading2] 3.1.4. Chuẩn hóa đặc trưng bằng L2 Normalization
+[Heading2] 3.2. Lựa chọn thuật toán/mô hình
+[Heading2] 3.2.1. Bài toán nhận diện khuôn mặt
+[Heading3] Tài liệu tham khảo
+[Heading2] 3.2.2. Thuật toán ArcFace
+[Heading2] 3.2.3. Phương pháp so khớp bằng Cosine Similarity
+[Heading3] Tài liệu tham khảo
+[Heading2] 3.2.4. Lý do lựa chọn ArcFace kết hợp ResNet-50
+[Heading3] Tài liệu tham khảo
+[Heading2] 3.3. Cấu hình huấn luyện mô hình
+[Heading2] 3.3.1. Phân chia tập dữ liệu
+[Heading4] a. Phân chia dữ liệu trong giai đoạn huấn luyện trên VGGFace2
+[Heading4] b. Phân chia dữ liệu trong giai đoạn Fine-tuning
+[Heading2] 3.3.2. Tăng cường dữ liệu
+[Heading4] a. Lật ngang ngẫu nhiên (Random Horizontal Flip)
+[PotentialHeading] Mục đích: Mô phỏng góc nhìn và hướng quay đầu trái/phải đối xứng của nhân viên khi đi qua camera điểm danh. Kỹ thuật này giúp nhân đôi độ đa dạng về góc hình học mà không làm mất đi các đặc tính cơ bản của khuôn mặt.
+[Heading5] b. Biến đổi màu sắc và ánh sáng ngẫu nhiên (Color Jittering)
+[PotentialHeading] Mục đích: Mô phỏng các điều kiện ánh sáng phức tạp trong văn phòng làm việc thực tế (ví dụ: bóng đổ do đèn trần, sự thay đổi cường độ ánh sáng giữa các thời điểm sáng/chiều, hoặc ánh sáng phát ra từ màn hình máy tính phản chiếu lên khuôn mặt).
+[Heading5] c. Làm mờ Gaussian (Gaussian Blur)
+[PotentialHeading] Mục đích: Làm mịn và giảm độ sắc nét của các cạnh ảnh một cách ngẫu nhiên. Phép toán này giúp mô phỏng hiện tượng mờ nhòe do chuyển động (motion blur) khi nhân viên di chuyển nhanh trước camera, hoặc các trường hợp hệ thống sử dụng camera giám sát chất lượng thấp có độ phân giải và độ cảm quang kém.
+[Heading5] d. Kỹ thuật xóa vùng ảnh ngẫu nhiên (Random Erasing)
+[PotentialHeading] Mục đích: Đây là kỹ thuật tăng cường dữ liệu cực kỳ quan trọng cho bài toán nhận diện khuôn mặt đeo khẩu trang. Bằng cách chèn ngẫu nhiên một hình chữ nhật màu xám che khuất một góc bất kỳ trên ảnh, mạng nơ-ron bị ép buộc phải học cách nhận diện người qua các vùng đặc trưng còn lại (như mắt, chân mày, trán, tai) thay vì chỉ phụ thuộc vào các vùng đặc trưng dễ nhận diện như miệng hay mũi. Điều này trực tiếp nâng cao hiệu năng của mô hình khi đối mặt với dữ liệu thực tế đeo khẩu trang.
+[Heading2] 3.3.3. Cấu hình phần cứng
+[Heading2] 3.3.4. Cấu hình Hyper-parameter
+[Heading2] 3.3.5. Chiến lược Warm-up
+[Heading2] Tổng số epoch huấn luyện: 25.
+[Heading2] Số epoch Warm-up: 5.
+[Heading2] Learning Rate mục tiêu: 1x10^{-4}.
+[Heading2] Việc áp dụng Warm-up giúp quá trình huấn luyện diễn ra ổn định hơn, giảm nguy cơ mất hội tụ và cải thiện khả năng học đặc trưng của mô hình trong các giai đoạn tiếp theo.
+[Heading2] Chương IV. Đánh giá mô hình và demo
+[PotentialHeading] 4.1. Độ đo đánh giá
+[PotentialHeading] 4.1.1. Ma trận nhầm lẫn và các chỉ số liên quan
+[PotentialHeading] 4.1.2. Đường cong ROC và chỉ số AUC
+[PotentialHeading] 4.1.3. Tỷ lệ lỗi tương đương (EER)
+[PotentialHeading] 4.2. Thực nghiệm và kết quả đánh giá
+[PotentialHeading] 4.2.1. Thiết lập thực nghiệm
+[PotentialHeading] 4.2.2. Kết quả của mô hình ArcFace + ResNet-50
+[Heading3] Nhận xét
+[PotentialHeading] 4.2.3. So sánh với các mô hình khác
+[PotentialHeading] 4.3. Demo hệ thống
+[PotentialHeading] 4.3.1. Tổng quan hệ thống
+[Heading2] Bảng tổng hợp kịch bản các trường hợp chấm công
+[PotentialHeading] 4.3.2. Công nghệ xây dựng hệ thống
+[PotentialHeading] 4.3.3. Chức năng đăng ký nhân viên
+[PotentialHeading] 4.3.4. Chức năng quản lý nhân viên
+[PotentialHeading] 4.3.5. Chức năng đăng ký khuôn mặt
+[PotentialHeading] 4.3.6. Chức năng nhận diện thời gian thực
+[PotentialHeading] 4.3.7. Chức năng thống kê và báo cáo
+[PotentialHeading] 4.3.8. Đánh giá hoạt động thực tế
+[Heading3] KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
+
+--- FULL TEXT PREVIEW (FIRST 200 LINES) ---
+MỤC LỤC
+LỜI CẢM ƠN
+LỜI MỞ ĐẦU
+DANH MỤC HÌNH ẢNH
+DANH MỤC BẢNG BIỂU
+DANH MỤC TỪ VIẾT TẮT
+CHƯƠNG 1. TỔNG QUAN ĐỀ TÀI
+1.1 Giới thiệu đề tài
+1.2 Phát biểu bài toán
+1.2.1 Bối cảnh bài toán
+1.2.2 Input của hệ thống
+1.2.3 Output của hệ thống
+1.2.4 Thách thức của bài toán
+1.3 Mục tiêu đề tài
+1.4 Phạm vi thực hiện
+1.5 Khả năng ứng dụng thực tế
+1.6 Khảo sát các nghiên cứu liên quan
+1.6.1 FaceNet
+1.6.2 DeepFace
+1.6.3 ArcFace
+1.6.4 InsightFace
+1.6.5 Các hệ thống chấm công bằng khuôn mặt hiện nay
+1.7 Đề xuất giải pháp
+Tiểu kết chương I
+CHƯƠNG 2. DỮ LIỆU VÀ TIỀN XỬ LÝ DỮ LIỆU
+2.1. Thu thập dữ liệu
+2.2 Tiền xử lý dữ liệu
+2.8.1 Face Detection
+2.8.2 Face Alignment
+2.8.3 Chuẩn hóa kích thước ảnh
+2.8.4 Data Augmentation
+2.8.5 Quality Filtering
+Tiểu kết chương II
+CHƯƠNG 3: XÂY DỰNG MÔ HÌNH NHẬN DIỆN KHUÔN MẶT DỰA TRÊN ARCFACE VÀ IRESNET-100
+3.1. Trích chọn đặc trưng khuôn mặt
+3.1.1. Mô hình iResNet-100
+3.1.2. Sinh vector đặc trưng (Embedding 512 chiều)
+3.1.3. Chuẩn hóa đặc trưng bằng L2 Normalization
+3.2. Xây dựng mô hình ArcFace cho bài toán nhận diện khuôn mặt
+3.2.1. Tổng quan về ArcFace
+3.2.2. Hàm mất mát ArcFace (ArcFace Loss)
+3.2.3. Cấu hình huấn luyện mô hình
+3.2.4. Quy trình sinh embedding và xây dựng cơ sở dữ liệu khuôn mặt
+3.3. Một số mô hình nhận diện khuôn mặt khác
+3.3.1. FaceNet
+3.3.2. CosFace
+3.3.3. SphereFace
+Tiểu kết chương III
+CHƯƠNG 4. THỰC NGHIỆM VÀ ĐÁNH GIÁ
+4.1 Môi trường thực nghiệm
+4.2 Cấu hình phần cứng
+4.3 Các độ đo đánh giá
+4.3.1 Accuracy
+4.3.2 Precision
+4.3.3 Recall
+4.3.4 F1-Score
+4.3.5 FAR
+4.3.6 FRR
+4.3.7 EER
+4.4 Kết quả huấn luyện
+4.5 Kết quả nhận diện khuôn mặt
+4.6 Kết quả Anti-Spoofing
+4.7 Đánh giá trên dữ liệu thực tế
+4.8 Xây dựng prototype hệ thống
+4.8.1 Chức năng đăng ký nhân viên
+4.8.2 Chức năng thu thập dữ liệu
+4.8.3 Chức năng chấm công
+4.8.4 Chức năng quản lý lịch sử chấm công
+4.9 Đánh giá kết quả huấn luyện
+Tiểu kết chương IV
+KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
+1. Kết quả đạt được
+2. Hạn chế của đề tài
+3. Hướng phát triển trong tương lai
+TÀI LIỆU THAM KHẢO
+PHỤ LỤC
+Phụ lục A. Source Code
+Phụ lục B. Cơ sở dữ liệu
+Phụ lục C. Hướng dẫn sử dụng hệ thống
+DANH MỤC TỪ VIẾT TẮT
+CHƯƠNG I.  TỔNG QUAN ĐỀ TÀI
+1.1 Giới thiệu đề tài
+Trong những năm gần đây, sự phát triển mạnh mẽ của công nghệ thông tin và trí tuệ nhân tạo đã tạo điều kiện cho việc tự động hóa nhiều hoạt động trong đời sống và doanh nghiệp. Một trong những lĩnh vực được quan tâm nhiều hiện nay là quản lý nhân sự, đặc biệt là bài toán chấm công và theo dõi thời gian làm việc của nhân viên.
+Tại nhiều doanh nghiệp, việc chấm công vẫn được thực hiện bằng các phương pháp truyền thống như ký tên, quẹt thẻ từ hoặc sử dụng máy chấm công vân tay. Mặc dù các phương pháp này đã được sử dụng trong thời gian dài, nhưng vẫn tồn tại nhiều hạn chế như mất thời gian, dễ xảy ra gian lận, phụ thuộc vào thiết bị vật lý hoặc gặp khó khăn trong việc quản lý khi số lượng nhân viên lớn.
+Cùng với sự phát triển của công nghệ nhận diện khuôn mặt, nhiều hệ thống hiện đại đã bắt đầu sử dụng khuôn mặt như một phương thức xác thực danh tính. Phương pháp này cho phép nhận biết người dùng thông qua hình ảnh thu được từ camera mà không cần tiếp xúc trực tiếp với thiết bị. Điều này không chỉ giúp tiết kiệm thời gian mà còn nâng cao tính tiện lợi và độ chính xác trong quá trình chấm công.
+Xuất phát từ nhu cầu thực tế đó, nhóm thực hiện đề tài: “Hệ thống chấm công tự động sử dụng nhận diện khuôn mặt dựa trên ArcFace và iResNet-50” . Đề tài tập trung nghiên cứu và xây dựng một hệ thống có khả năng nhận diện nhân viên thông qua khuôn mặt và tự động ghi nhận thời gian chấm công. Hệ thống được thiết kế nhằm hỗ trợ doanh nghiệp quản lý nhân sự hiệu quả hơn, đồng thời giảm thiểu các sai sót và gian lận thường gặp trong các phương pháp chấm công truyền thống.
+1.2 Phát biểu bài toán
+1.2.1 Bối cảnh bài toán
+Trong môi trường doanh nghiệp hiện nay, việc quản lý thời gian làm việc của nhân viên đóng vai trò quan trọng trong công tác quản lý và tính lương. Tuy nhiên, các phương pháp chấm công hiện có vẫn còn nhiều hạn chế.
+Đối với hình thức chấm công bằng thẻ từ, nhân viên có thể đưa thẻ cho người khác quẹt hộ. Đối với phương pháp sử dụng vân tay, thiết bị thường phải tiếp xúc trực tiếp với người dùng và có thể gặp khó khăn khi vân tay bị mờ hoặc bị ảnh hưởng bởi môi trường làm việc.
+Vì vậy, cần có một giải pháp có khả năng tự động nhận diện nhân viên, hoạt động nhanh chóng và hạn chế tối đa sự can thiệp của con người. Công nghệ nhận diện khuôn mặt được xem là một hướng tiếp cận phù hợp để giải quyết vấn đề này.
+1.2.2 Bài toán AI của đề tài
+Bài toán chính của đề tài là xác định danh tính của một người dựa trên hình ảnh khuôn mặt được thu nhận từ camera.
+Nói cách khác, hệ thống cần trả lời câu hỏi:
+"Người xuất hiện trước camera là ai?"
+Để thực hiện điều đó, hệ thống cần học được các đặc điểm riêng trên khuôn mặt của từng người, từ đó phân biệt được giữa những người khác nhau và nhận diện chính xác nhân viên đã đăng ký trong cơ sở dữ liệu.
+1.2.3 Input của hệ thống
+Dữ liệu đầu vào của hệ thống là hình ảnh khuôn mặt được thu nhận từ camera trong quá trình chấm công. Khi người dùng đứng trước webcam, hệ thống sẽ ghi nhận khung hình hiện tại và tiến hành xử lý để xác định danh tính của người đó.
+Bên cạnh dữ liệu được thu nhận trực tiếp từ camera, hệ thống còn sử dụng tập dữ liệu khuôn mặt của các nhân viên đã được đăng ký trước trong cơ sở dữ liệu. Đây là nguồn dữ liệu tham chiếu để hệ thống thực hiện quá trình so sánh và nhận diện.
+Trong môi trường thực tế, chất lượng dữ liệu đầu vào thường không ổn định do chịu ảnh hưởng của nhiều yếu tố khác nhau. Chẳng hạn, điều kiện ánh sáng tại nơi chấm công có thể thay đổi theo thời gian trong ngày hoặc theo vị trí lắp đặt camera. Ngoài ra, người dùng có thể xuất hiện ở nhiều góc nhìn khác nhau thay vì luôn nhìn trực diện vào camera.
+Bên cạnh đó, chất lượng hình ảnh còn phụ thuộc vào độ phân giải và khả năng ghi hình của thiết bị camera. Trong một số trường hợp, khuôn mặt người dùng có thể bị che khuất một phần do đeo kính, khẩu trang hoặc các vật dụng cá nhân khác. Những yếu tố này có thể làm giảm độ chính xác của quá trình nhận diện và là một trong những thách thức cần được xem xét khi xây dựng hệ thống.
+Do đó, hệ thống cần có khả năng xử lý tốt các trường hợp dữ liệu đầu vào khác nhau nhằm đảm bảo việc nhận diện khuôn mặt được thực hiện ổn định và chính xác trong điều kiện sử dụng thực tế.
+Hình. Các nguồn dữ liệu đầu vào của hệ thống nhận diện khuôn mặt
+Nguồn: Nhóm tác giả
+1.2.4 Output của hệ thống
+Sau khi hoàn thành quá trình nhận diện khuôn mặt, hệ thống sẽ trả về kết quả xác thực tương ứng với người xuất hiện trước camera. Các thông tin đầu ra được sử dụng để phục vụ quá trình chấm công và quản lý nhân sự.
+Khi nhận diện thành công, hệ thống sẽ hiển thị các thông tin bao gồm mã nhân viên, họ và tên nhân viên, thời gian thực hiện chấm công và trạng thái xác thực. Đồng thời, thông tin này sẽ được lưu vào cơ sở dữ liệu để phục vụ việc tra cứu và quản lý lịch sử chấm công sau này.
+Trong trường hợp khuôn mặt được phát hiện nhưng không tìm thấy thông tin tương ứng trong cơ sở dữ liệu hoặc độ tin cậy nhận diện không đạt yêu cầu, hệ thống sẽ từ chối xác thực và thông báo người dùng chưa được nhận diện. Điều này giúp hạn chế các trường hợp chấm công sai người hoặc sử dụng dữ liệu không hợp lệ.
+Nhờ đó, hệ thống không chỉ thực hiện chức năng nhận diện danh tính mà còn hỗ trợ tự động hóa quá trình ghi nhận thời gian làm việc, góp phần nâng cao hiệu quả quản lý nhân sự trong thực tế.
+Hình . Dữ liệu đầu ra của hệ thống chấm công bằng nhận diện khuôn mặt
+1.3 Mục tiêu đề tài
+Đề tài được thực hiện với mục tiêu nghiên cứu và xây dựng một hệ thống chấm công tự động dựa trên công nghệ nhận diện khuôn mặt, góp phần nâng cao hiệu quả quản lý nhân sự và giảm thiểu những hạn chế của các phương pháp chấm công truyền thống.
+Về mặt nghiên cứu, đề tài tập trung tìm hiểu bài toán nhận diện khuôn mặt, các phương pháp nhận diện đang được sử dụng phổ biến hiện nay cũng như quy trình xây dựng một hệ thống nhận diện khuôn mặt trong thực tế. Bên cạnh đó, đề tài nghiên cứu mô hình ArcFace kết hợp với mạng iResNet-50 nhằm nâng cao khả năng nhận diện và phân biệt giữa các cá nhân khác nhau. Thông qua quá trình nghiên cứu, nhóm mong muốn hiểu rõ nguyên lý hoạt động của các mô hình nhận diện khuôn mặt hiện đại cũng như khả năng ứng dụng của chúng trong các bài toán thực tế.
+Về mặt ứng dụng, mục tiêu của đề tài là xây dựng một hệ thống chấm công tự động có khả năng nhận diện nhân viên theo thời gian thực thông qua camera. Hệ thống cho phép thu thập dữ liệu khuôn mặt, xác định danh tính người dùng, tự động ghi nhận thời gian chấm công và lưu trữ thông tin vào cơ sở dữ liệu. Ngoài ra, hệ thống còn hỗ trợ quản lý thông tin nhân viên và phát hiện một số trường hợp giả mạo cơ bản nhằm nâng cao độ tin cậy trong quá trình sử dụng.
+Thông qua việc triển khai hệ thống hoàn chỉnh, đề tài hướng đến việc xây dựng một giải pháp chấm công có tính thực tiễn cao, dễ triển khai và có khả năng mở rộng để phục vụ cho các doanh nghiệp, trường học hoặc các tổ chức có nhu cầu quản lý nhân sự bằng công nghệ nhận diện khuôn mặt.
+1.4 Phạm vi thực hiện
+Trong phạm vi của đề tài, nhóm tập trung nghiên cứu và xây dựng một hệ thống chấm công tự động bằng nhận diện khuôn mặt hoạt động trên máy tính có kết nối camera. Hệ thống được thiết kế nhằm phục vụ nhu cầu quản lý thời gian làm việc của nhân viên trong các doanh nghiệp hoặc tổ chức có quy mô vừa và nhỏ.
+Các chức năng chính được triển khai trong đề tài bao gồm thu thập và quản lý dữ liệu khuôn mặt của nhân viên, nhận diện khuôn mặt theo thời gian thực thông qua camera, xác thực danh tính người dùng, tự động ghi nhận thời gian chấm công và lưu trữ lịch sử chấm công vào cơ sở dữ liệu. Ngoài ra, hệ thống còn hỗ trợ quản lý thông tin nhân viên và cung cấp khả năng tra cứu dữ liệu phục vụ công tác quản lý.
+Về mặt kỹ thuật, đề tài tập trung nghiên cứu và ứng dụng mô hình ArcFace kết hợp với mạng iResNet-50 để thực hiện bài toán nhận diện khuôn mặt. Dữ liệu được thu thập từ camera và xử lý trực tiếp trên máy tính nhằm đảm bảo hệ thống có thể hoạt động theo thời gian thực trong môi trường sử dụng thực tế.
+Do giới hạn về thời gian thực hiện, tài nguyên phần cứng và phạm vi của môn học, đề tài chưa tập trung phát triển các chức năng nâng cao như hệ thống hỗ trợ nhiều camera hoạt động đồng thời, đồng bộ dữ liệu giữa nhiều chi nhánh, triển khai trên các thiết bị di động hoặc thiết bị nhúng, cũng như xây dựng hệ thống quản lý nhân sự quy mô lớn trên nền tảng điện toán đám mây.
+Mặc dù còn một số giới hạn nhất định, hệ thống được xây dựng vẫn đáp ứng đầy đủ các chức năng cốt lõi của một hệ thống chấm công bằng nhận diện khuôn mặt và có thể được sử dụng làm nền tảng để tiếp tục phát triển, mở rộng trong tương lai.
+1.5 Khả năng ứng dụng thực tế
+Hiện nay, nhu cầu tự động hóa các hoạt động quản lý nhân sự đang ngày càng gia tăng tại các doanh nghiệp và tổ chức. Trong đó, việc ứng dụng công nghệ nhận diện khuôn mặt vào quá trình chấm công được xem là một giải pháp hiệu quả nhờ khả năng xác thực danh tính nhanh chóng, thuận tiện và hạn chế sự can thiệp của con người.
+Hệ thống được xây dựng trong đề tài có thể được triển khai tại nhiều môi trường khác nhau như doanh nghiệp, trường học, nhà máy, bệnh viện, trung tâm thương mại hoặc các khu vực cần kiểm soát việc ra vào. Thông qua camera giám sát hoặc webcam, hệ thống có thể tự động nhận diện người dùng và ghi nhận thời gian làm việc mà không cần sử dụng thẻ từ, mã QR hay các phương pháp xác thực thủ công khác.
+Việc áp dụng hệ thống chấm công bằng nhận diện khuôn mặt mang lại nhiều lợi ích trong thực tế. Trước hết, hệ thống giúp rút ngắn thời gian thực hiện chấm công và giảm tình trạng ùn tắc tại các khu vực có số lượng người dùng lớn. Bên cạnh đó, việc xác thực dựa trên khuôn mặt giúp hạn chế các hành vi gian lận như chấm công hộ hoặc sử dụng thông tin của người khác để xác thực. Dữ liệu chấm công được lưu trữ tự động trong cơ sở dữ liệu, giúp việc quản lý, thống kê và tra cứu trở nên thuận tiện hơn so với các phương pháp truyền thống.
+Ngoài chức năng chấm công, công nghệ nhận diện khuôn mặt còn có thể được ứng dụng trong nhiều lĩnh vực khác như xác thực danh tính người dùng, kiểm soát truy cập tại các khu vực quan trọng, quản lý ra vào tại doanh nghiệp, trường học hoặc hỗ trợ các hệ thống giám sát và đảm bảo an ninh. Điều này cho thấy tiềm năng phát triển và khả năng mở rộng của hệ thống trong tương lai là rất lớn.
+Với những ưu điểm trên, hệ thống chấm công bằng nhận diện khuôn mặt không chỉ góp phần nâng cao hiệu quả quản lý nhân sự mà còn phù hợp với xu hướng ứng dụng trí tuệ nhân tạo vào các bài toán thực tế trong thời đại chuyển đổi số hiện nay.
+Hình . Một số ứng dụng của hệ thống trong thực tế
+1.6 Khảo sát các nghiên cứu liên quan
+Trong những năm gần đây, nhận diện khuôn mặt đã trở thành một trong những lĩnh vực được nghiên cứu mạnh mẽ trong ngành thị giác máy tính và trí tuệ nhân tạo. Nhiều công trình nghiên cứu đã được công bố nhằm nâng cao độ chính xác, tốc độ xử lý và khả năng ứng dụng trong thực tế.
+1.6.1 FaceNet
+Một trong những nghiên cứu nổi bật trong lĩnh vực nhận diện khuôn mặt là FaceNet do Florian Schroff và cộng sự tại Google công bố vào năm 2015. FaceNet đề xuất phương pháp biểu diễn khuôn mặt dưới dạng vector đặc trưng và sử dụng khoảng cách giữa các vector để xác định mức độ tương đồng giữa các khuôn mặt. Mô hình này sử dụng Triplet Loss để giảm khoảng cách giữa các ảnh của cùng một người và tăng khoảng cách giữa các ảnh của những người khác nhau.
+FaceNet đã tạo nền tảng cho nhiều nghiên cứu hiện đại trong lĩnh vực nhận diện khuôn mặt và được xem là một trong những bước tiến quan trọng trong việc ứng dụng học sâu vào bài toán xác thực danh tính.
+Nguồn tham khảo:
+Schroff, F., Kalenichenko, D., & Philbin, J. (2015). FaceNet: A Unified Embedding for Face Recognition and Clustering. Proceedings of CVPR 2015.
+1.6.2 DeepFace Recognition
+Năm 2015, nhóm nghiên cứu thuộc Đại học Oxford đã công bố nghiên cứu Deep Face Recognition. Công trình này tập trung vào việc sử dụng mạng nơ-ron tích chập để học đặc trưng khuôn mặt từ tập dữ liệu lớn. Kết quả nghiên cứu cho thấy các mô hình học sâu có khả năng đạt độ chính xác rất cao trong các bài toán nhận diện khuôn mặt thực tế.
+Nghiên cứu này góp phần thúc đẩy việc sử dụng các mô hình học sâu trong nhiều hệ thống xác thực danh tính hiện nay.
+Nguồn tham khảo:
+Parkhi, O. M., Vedaldi, A., & Zisserman, A. (2015). Deep Face Recognition. Visual Geometry Group, University of Oxford.
+1.6.3 ArcFace
+Năm 2019, Jiankang Deng và cộng sự đã công bố nghiên cứu ArcFace, một trong những phương pháp nhận diện khuôn mặt có độ chính xác cao nhất hiện nay. ArcFace đề xuất một hàm mất mát mới giúp tăng khả năng phân biệt giữa các khuôn mặt khác nhau bằng cách tối ưu khoảng cách góc giữa các vector đặc trưng.
+Nhờ hiệu quả cao và khả năng huấn luyện ổn định, ArcFace hiện được sử dụng rộng rãi trong nhiều hệ thống nhận diện khuôn mặt thương mại và nghiên cứu.
+Nguồn tham khảo:
+Deng, J., Guo, J., Xue, N., & Zafeiriou, S. (2019). ArcFace: Additive Angular Margin Loss for Deep Face Recognition. Proceedings of CVPR 2019.
+1.6.4 InsightFace
+InsightFace là một framework mã nguồn mở được phát triển dựa trên nghiên cứu ArcFace. Framework này cung cấp sẵn các mô hình mạnh cho bài toán phát hiện khuôn mặt, căn chỉnh khuôn mặt và nhận diện khuôn mặt. InsightFace hiện được sử dụng phổ biến trong các nghiên cứu học thuật cũng như các hệ thống nhận diện khuôn mặt thực tế nhờ khả năng triển khai nhanh và độ chính xác cao.
+Một ưu điểm lớn của InsightFace là hỗ trợ nhiều mô hình pretrained, giúp giảm đáng kể thời gian huấn luyện và phù hợp với các dự án có giới hạn về tài nguyên tính toán.
+Nguồn tham khảo:
+InsightFace Team. InsightFace Research and Framework.
+1.6.5 Các hệ thống chấm công bằng khuôn mặt hiện nay
+Hiện nay đã có nhiều hệ thống chấm công sử dụng công nghệ nhận diện khuôn mặt được triển khai trong doanh nghiệp và trường học. Phần lớn các hệ thống này sử dụng webcam hoặc camera giám sát để xác thực danh tính người dùng trước khi ghi nhận thời gian chấm công.
+Tuy nhiên, nhiều hệ thống vẫn gặp khó khăn trong các điều kiện thực tế như ánh sáng không ổn định, thay đổi góc nhìn khuôn mặt, đeo khẩu trang hoặc sử dụng ảnh giả để đánh lừa hệ thống. Vì vậy, việc nâng cao khả năng hoạt động trong môi trường thực tế vẫn là một hướng nghiên cứu được quan tâm.
+1.6.6 Điểm khác biệt của đề tài
+So với các nghiên cứu và hệ thống đã được công bố trước đây, đề tài không tập trung xây dựng một mô hình nhận diện khuôn mặt hoàn toàn mới mà hướng đến việc ứng dụng và tối ưu các mô hình hiện đại vào bài toán chấm công thực tế.
+Điểm khác biệt chính của đề tài bao gồm:
+Sử dụng mô hình ArcFace kết hợp iResNet-50 nhằm nâng cao độ chính xác nhận diện.
+Kế thừa pretrained model từ InsightFace để giảm thời gian huấn luyện và tận dụng các đặc trưng khuôn mặt đã được học trước đó.
+Thực hiện fine-tuning trên dữ liệu thực tế do nhóm tự thu thập nhằm tăng khả năng thích nghi với môi trường sử dụng thật.
+Xây dựng công cụ tự động thu thập dữ liệu khuôn mặt bằng webcam phục vụ quá trình huấn luyện và đăng ký nhân viên.
+Kết hợp cơ chế phát hiện giả mạo cơ bản nhằm hạn chế các trường hợp sử dụng ảnh hoặc video để chấm công thay người.
+Xây dựng hệ thống chấm công hoàn chỉnh có khả năng hoạt động theo thời gian thực và lưu trữ dữ liệu trực tiếp vào cơ sở dữ liệu.
+Nhờ những đặc điểm trên, đề tài không chỉ dừng lại ở mức nghiên cứu mô hình nhận diện khuôn mặt mà còn hướng đến việc xây dựng một hệ thống có khả năng triển khai trong môi trường thực tế.
+Tiểu kết chương I
+Trong chương này, báo cáo đã trình bày tổng quan về đề tài “Hệ thống chấm công tự động sử dụng nhận diện khuôn mặt dựa trên ArcFace và iResNet-50”, bao gồm bối cảnh hình thành, bài toán cần giải quyết, mục tiêu nghiên cứu và phạm vi thực hiện của hệ thống.
+Bên cạnh đó, chương cũng đã mô tả dữ liệu đầu vào, dữ liệu đầu ra và khả năng ứng dụng thực tế của hệ thống trong nhiều môi trường khác nhau như doanh nghiệp, trường học, nhà máy và các khu vực kiểm soát ra vào. Việc ứng dụng công nghệ nhận diện khuôn mặt vào chấm công không chỉ giúp tự động hóa quy trình quản lý nhân sự mà còn góp phần nâng cao độ chính xác, giảm thiểu gian lận và tối ưu hiệu quả vận hành.
+Ngoài việc giới thiệu tổng quan về đề tài, chương này cũng đã khảo sát một số nghiên cứu và công trình tiêu biểu trong lĩnh vực nhận diện khuôn mặt như FaceNet, Deep Face Recognition, ArcFace và InsightFace. Thông qua việc phân tích các nghiên cứu liên quan, nhóm đã lựa chọn hướng tiếp cận sử dụng mô hình ArcFace kết hợp với mạng iResNet-50 và framework InsightFace nhằm tận dụng những ưu điểm về độ chính xác, khả năng triển khai thực tế và hiệu quả tính toán.
+Từ những cơ sở lý thuyết và khảo sát đã trình bày, có thể thấy rằng việc xây dựng hệ thống chấm công bằng nhận diện khuôn mặt là hoàn toàn khả thi và phù hợp với nhu cầu thực tế hiện nay. Đây cũng là nền tảng quan trọng cho các bước triển khai tiếp theo của đề tài.
+Trong chương tiếp theo, báo cáo sẽ trình bày chi tiết về các bộ dữ liệu được sử dụng, quy trình thu thập dữ liệu, tổ chức lưu trữ dữ liệu và các bước tiền xử lý nhằm chuẩn bị dữ liệu cho quá trình huấn luyện và đánh giá mô hình.
+CHƯƠNG II. Chuẩn bị dữ liệu
+2.1 Thu thập dữ liệu
+2.1.1 Tổng quan dữ liệu sử dụng
+Dữ liệu đóng vai trò quan trọng trong việc xây dựng và đánh giá hiệu quả của hệ thống nhận diện khuôn mặt. Để đảm bảo mô hình có khả năng hoạt động ổn định trong nhiều điều kiện khác nhau, đề tài sử dụng kết hợp giữa các bộ dữ liệu công khai và dữ liệu thực tế do nhóm tự thu thập.
+Các bộ dữ liệu công khai được sử dụng nhằm hỗ trợ quá trình huấn luyện, tinh chỉnh và đánh giá mô hình. Trong khi đó, bộ dữ liệu thực tế được xây dựng từ môi trường triển khai nhằm giúp hệ thống thích nghi tốt hơn với điều kiện sử dụng thực tế như thay đổi ánh sáng, góc nhìn khuôn mặt và chất lượng hình ảnh từ camera.
+Cụ thể, đề tài sử dụng bộ dữ liệu VGGFace2 để phục vụ quá trình tinh chỉnh mô hình nhận diện khuôn mặt. Bộ dữ liệu In-house được nhóm tự thu thập thông qua webcam và được sử dụng để đánh giá khả năng hoạt động của hệ thống trong môi trường thực tế. Ngoài ra, bộ dữ liệu RMFRD được sử dụng để bổ sung các trường hợp khuôn mặt có đeo khẩu trang, trong khi CelebA-Spoof được sử dụng để hỗ trợ phát hiện các hành vi giả mạo. Cuối cùng, hai bộ dữ liệu LFW và AgeDB-30 được sử dụng để đánh giá chất lượng và khả năng nhận diện của mô hình.
+Dưới đây là bảng tổng quan các bộ dữ liệu đã được sử dụng trong đề tài:
+Bảng 2.1. Tổng quan các bộ dữ liệu được sử dụng trong đề tài
+Hình 2.1. Tổng quan các bộ dữ liệu được sử dụng trong đề tài
+Việc kết hợp nhiều nguồn dữ liệu khác nhau giúp mô hình có khả năng học được các đặc trưng đa dạng của khuôn mặt, đồng thời nâng cao khả năng hoạt động ổn định trong các điều kiện thực tế.
+2.1.2.Dữ liệu có sẵn
+Trong quá trình huấn luyện, tinh chỉnh (fine-tuning) và đánh giá mô hình iResNet-50 kết hợp ArcFace, đề tài đã tiến hành thu thập và kế thừa các bộ dữ liệu công khai chuẩn mực trong lĩnh vực thị giác máy tính. Các bộ dữ liệu này được phân loại theo mục đích sử dụng cụ thể bao gồm: huấn luyện nhận diện, nhận diện có che khuất, chống giả mạo (anti-spoofing) và đánh giá chuẩn (benchmark).
+Bộ dữ liệu VGGFace2
+VGGFace2 là bộ dữ liệu quy mô lớn được phát triển bởi nhóm Visual Geometry Group (VGG) thuộc Đại học Oxford. Đây là bộ dữ liệu cốt lõi được đề tài lựa chọn để tiến hành huấn luyện và tinh chỉnh (fine-tuning) mô hình trích xuất đặc trưng khuôn mặt.
+Đặc điểm thống kê: Bộ dữ liệu bao gồm khoảng 3,31 triệu ảnh của 9.131 cá nhân khác nhau (trung bình 362 ảnh/người).
+Tính đa dạng: Các hình ảnh được thu thập từ Internet trong các điều kiện thực tế (in-the-wild), chứa đựng sự biến thiên lớn về tư thế (pose), độ tuổi (age), biểu cảm (expression), điều kiện chiếu sáng và sắc tộc.
+Vai trò trong hệ thống: Với quy mô lớn và dữ liệu được gán nhãn sạch, VGGFace2 hoàn toàn tương thích với hệ sinh thái InsightFace và kiến trúc ArcFace. Sự đa dạng của dữ liệu giúp mạng nơ-ron học được các đặc trưng sinh trắc học bền vững, từ đó tăng cường tính tổng quát (generalization) và hạn chế suy giảm hiệu năng khi triển khai trong môi trường doanh nghiệp thực tế.
+Tài liệu tham khảo: Cao, Q., Shen, L., Xie, W., Parkhi, O. M., & Zisserman, A. (2018). VGGFace2: A Dataset for Recognising Faces Across Pose and Age. Proceedings of the International Conference on Automatic Face & Gesture Recognition.
+Hình 2.2. Minh họa một số ảnh trong bộ dữ liệu VGGFace2
+Bộ dữ liệu RMFRD
+Real-World Masked Face Recognition Dataset (RMFRD) là bộ dữ liệu chuyên biệt phục vụ bài toán nhận diện khuôn mặt trong điều kiện đeo khẩu trang, phản ánh sát thực tế nhu cầu hậu đại dịch COVID-19.
+Đặc điểm thống kê: RMFRD cung cấp hơn 95.000 hình ảnh của nhiều chủ thể khác nhau, bao gồm đa dạng các loại khẩu trang và góc độ chụp trong điều kiện thực tế.
+Vai trò trong hệ thống: Mặc dù hệ thống chấm công ưu tiên yêu cầu tháo khẩu trang để đạt độ chính xác cao nhất, việc bổ sung RMFRD vào quá trình huấn luyện giúp mô hình tăng cường khả năng trích xuất đặc trưng tại vùng mắt và trán. Điều này đóng vai trò quan trọng trong việc nâng cao khả năng nhận diện khi khuôn mặt bị che khuất một phần (partial occlusion), đảm bảo tính linh hoạt của hệ thống.
+Tài liệu tham khảo: Anwar, A., & Raychowdhury, A. (2020). Masked Face Recognition for Secure Authentication. arXiv.
+Hình 2.3. Minh họa dữ liệu khuôn mặt đeo khẩu trang thực tế trong RMFRD
+Bộ dữ liệu CelabA-Spoof
+Để giải quyết lỗ hổng bảo mật khi người dùng cố tình gian lận chấm công bằng hình ảnh giả, đề tài tích hợp dữ liệu từ CelebA-Spoof – một cơ sở dữ liệu chống giả mạo khuôn mặt quy mô lớn do Đại học Quốc gia Singapore (NUS) và SenseTime Research phát triển.
+Đặc điểm thống kê: Bao gồm hơn 625.000 hình ảnh của khoảng 10.000 chủ thể, được phân loại rõ ràng giữa dữ liệu thật (live/bona fide) và dữ liệu giả mạo (spoof).
+Hình thức giả mạo: Chứa các kịch bản tấn công trình bày (Presentation Attacks) phổ biến như: in ảnh giấy (print attack), hiển thị ảnh trên thiết bị di động/máy tính bảng (display attack), và phát lại video (replay attack).
+Vai trò trong hệ thống: CelebA-Spoof được sử dụng để huấn luyện riêng biệt module Liveness Detection (Phát hiện thực thể sống). Module này đóng vai trò như một lớp khiên bảo mật, loại bỏ các yêu cầu chấm công không hợp lệ, đảm bảo tính toàn vẹn và độ tin cậy của hệ thống.
+Tài liệu tham khảo: Zhang, Z., Ge, S., Sun, L. et al. (2020). CelebA-Spoof: Large-Scale Face Anti-Spoofing Dataset with Rich Annotations. ECCV.
