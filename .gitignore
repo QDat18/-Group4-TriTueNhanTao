@@ -18,6 +18,8 @@ env/
 
 # Credentials & Secrets
 .env
+.env.local
+.env.*.local
 
 # Data & Models
 dataset/
@@ -28,5 +30,32 @@ outputs/
 # Build & Runtime
 node_modules/
 logs/
+logs/*.csv
 evaluation_reports/
 *.db
+
+# Project files (documentation & presentations)
+*.docx
+*.pptx
+*.doc
+*.pdf
+Nhom*.docx
+Nhom*.pdf
+Nhom*.pptx
+
+# Scratch/test files
+scratch/
+test_cam.py
+test_insight.py
+
+# Dev containers
+.devcontainer/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Test outputs
+src/test_vgg.py
