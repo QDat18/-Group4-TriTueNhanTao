@@ -1,5 +1,5 @@
 ---
-title: AIChamcong
+title: AIChamcong - Face Attendance System
 emoji: 🧑‍💼
 colorFrom: blue
 colorTo: indigo
@@ -8,216 +8,436 @@ app_port: 7860
 pinned: false
 ---
 
-# Hệ thống Chấm công Tự động bằng Nhận diện Khuôn mặt (Face Attendance System)
+<div align="center">
 
-> Hệ thống chấm công tự động sử dụng camera thời gian thực, ứng dụng các mô hình nhận diện khuôn mặt tiên tiến như **InsightFace (iResNet-50)**, **MobileNetV2**, và **VGG / ResNet** với hàm loss **ArcFace** nhằm xác thực nhân viên và ghi nhận thời gian làm việc một cách nhanh chóng, chính xác.
+# 🎯 Face Attendance System - Hệ thống Chấm công Tự động
 
----
+**Nhận diện khuôn mặt AI-powered cho quản lý chấm công hiệu quả**
 
-## 1. Giới thiệu dự án
+[![Python](https://img.shields.io/badge/Python-3.10+-3776ab?logo=python&logoColor=white)](https://python.org)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org)
+[![OpenCV](https://img.shields.io/badge/OpenCV-4.8+-5c3ee1?logo=opencv&logoColor=white)](https://opencv.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Dự án xây dựng một hệ thống chấm công tự động bằng nhận diện khuôn mặt, hướng tới việc thay thế các phương pháp chấm công truyền thống như ký tên, quẹt thẻ hoặc vân tay.
-Hệ thống sử dụng camera/webcam để thu nhận hình ảnh khuôn mặt theo thời gian thực. Sau đó, mô hình AI sẽ phát hiện khuôn mặt, trích xuất đặc trưng, so sánh với dữ liệu nhân viên đã đăng ký và tự động ghi nhận kết quả chấm công vào cơ sở dữ liệu.
+[🌐 Live Demo](https://aichamcong.vercel.app) • [📖 Tài liệu](#tài-liệu) • [🚀 Hướng dẫn cài đặt](#hướng-dẫn-cài-đặt)
 
-Đặc biệt, dự án hỗ trợ cả việc **sử dụng pretrained models (InsightFace)** để triển khai nhanh, lẫn **huấn luyện (train/fine-tune)** các mô hình nhẹ hơn như **MobileNetV2** để tối ưu hóa hiệu năng trên thiết bị có tài nguyên hạn chế.
-
----
-
-## 2. Tính năng nổi bật
-
-* **Nhận diện khuôn mặt Real-time:** Xử lý luồng video từ webcam để phát hiện và nhận diện khuôn mặt với độ trễ thấp.
-* **Hỗ trợ đa mô hình (Multi-model Support):**
-  * **InsightFace (buffalo_l):** Backbone iResNet-50 cho độ chính xác cực cao.
-  * **MobileNetV2 + ArcFace:** Trọng số nhẹ, tốc độ cao, phù hợp chạy trên CPU.
-  * **VGG-Face / Custom ResNet:** Phục vụ nghiên cứu và đánh giá so sánh.
-* **Huấn luyện mô hình (Training):** Tích hợp pipeline huấn luyện hoàn chỉnh với ArcFace, tự động checkpointing và logging (TensorBoard / CSV).
-* **Đánh giá chuẩn (Benchmark Evaluation):** Đánh giá các mô hình trên các tập dữ liệu chuẩn: **LFW, CALFW, CPLFW, AgeDB-30**.
-* **Quản lý dữ liệu nhân viên:** Công cụ tự động thu thập ảnh khuôn mặt từ camera để đăng ký nhân viên mới.
-* **Chống giả mạo (Anti-spoofing):** (Đang phát triển) Hỗ trợ phát hiện hình ảnh/video giả mạo.
+</div>
 
 ---
 
-## 3. Kiến trúc kỹ thuật
+## 📋 Mục lục
 
-| Thành phần              | Công nghệ sử dụng        | Vai trò                                                 |
-| ----------------------- | ------------------------ | ------------------------------------------------------- |
-| Lập trình               | Python 3.10+             | Xây dựng core logic, xử lý ảnh, AI và API               |
-| Computer Vision         | OpenCV, Pillow           | Đọc luồng video, tiền xử lý, căn chỉnh khuôn mặt        |
-| Face Detection          | SCRFD (InsightFace)      | Phát hiện và cắt khuôn mặt chuẩn xác                    |
-| Feature Extraction      | MobileNetV2 / ResNet-50  | Mạng Backbone trích xuất vector đặc trưng (512-dim)     |
-| Loss Function           | ArcFace Margin Loss      | Tăng khoảng cách giữa các class (identities)            |
-| Deep Learning           | PyTorch, ONNX Runtime    | Huấn luyện (Train/Val) và Inference mô hình             |
-| Đánh giá (Evaluation)   | Scikit-learn, Matplotlib | Tính toán Accuracy, AUC, EER, vẽ ROC/Confusion Matrix   |
-| Database                | SQLite                   | Lưu trữ thông tin nhân viên, logs chấm công             |
+- [Giới thiệu](#giới-thiệu)
+- [Tính năng nổi bật](#tính-năng-nổi-bật)
+- [Công nghệ sử dụng](#công-nghệ-sử-dụng)
+- [Kiến trúc hệ thống](#kiến-trúc-hệ-thống)
+- [Cấu trúc thư mục](#cấu-trúc-thư-mục)
+- [Hướng dẫn cài đặt](#hướng-dẫn-cài-đặt)
+- [Hướng dẫn sử dụng](#hướng-dẫn-sử-dụng)
+- [Đánh giá hiệu năng](#đánh-giá-hiệu-năng)
+- [Đội phát triển](#đội-phát-triển)
+- [Giấy phép](#giấy-phép)
 
 ---
 
-## 4. Pipeline xử lý
+## 🎯 Giới thiệu
 
-```text
-Camera / Webcam
-        |
-        v
-Phát hiện khuôn mặt (Face Detection - SCRFD)
-        |
-        v
-Căn chỉnh khuôn mặt (Face Alignment)
-        |
-        v
-Trích xuất Embedding (MobileNetV2 / InsightFace) -> Vector 512D
-        |
-        v
-Tính Cosine Similarity với Vector gốc trong Database
-        |
-        v
-Vượt ngưỡng (Threshold) -> Xác thực danh tính
-        |
-        v
-Ghi nhận chấm công vào Database
+**AIChamcong** là một hệ thống chấm công tự động sử dụng công nghệ nhận diện khuôn mặt AI tiên tiến, thay thế các phương pháp chấm công truyền thống như ký tên hay thẻ chấm công.
+
+### 🔑 Điểm nổi bật:
+- 📸 **Xử lý real-time** từ webcam/camera
+- 🧠 **Nhiều mô hình AI** (InsightFace, MobileNetV2, ResNet-50)
+- ⚡ **Tối ưu cho CPU & GPU** - chạy mượt trên nhiều nền tảng
+- 📊 **Đánh giá chuẩn quốc tế** trên LFW, CALFW, CPLFW, AgeDB-30
+- 🔐 **Chống giả mạo** - phát hiện ảnh/video giả mạo
+- 💾 **Quản lý cơ sở dữ liệu** - lưu trữ thông tin nhân viên và lịch chấm công
+
+---
+
+## ✨ Tính năng nổi bật
+
+| Tính năng | Mô tả |
+|-----------|--------|
+| 🎥 **Real-time Face Recognition** | Xử lý luồng video từ webcam với độ trễ thấp |
+| 🧠 **Multi-Model Support** | InsightFace, MobileNetV2, ResNet-50, VGG-Face |
+| 🏋️ **Model Training** | Pipeline huấn luyện hoàn chỉnh với ArcFace Loss |
+| 📈 **Benchmark Evaluation** | Đánh giá trên 4 tập dữ liệu chuẩn quốc tế |
+| 👤 **Employee Management** | Tự động thu thập ảnh khuôn mặt từ camera |
+| 🛡️ **Anti-Spoofing** | Phát hiện hình ảnh/video giả mạo |
+| 💾 **Database Integration** | SQLite cho lưu trữ nhân viên và log chấm công |
+| 📊 **Analytics Dashboard** | Thống kê và báo cáo chấm công |
+
+---
+
+## 🛠️ Công nghệ sử dụng
+
+### Backend & AI
+- **Python 3.10+** - Ngôn ngữ lập trình chính
+- **PyTorch** - Framework deep learning cho training & inference
+- **ONNX Runtime** - Tối ưu hóa inference trên CPU/GPU
+- **InsightFace** - State-of-the-art face detection & recognition
+- **OpenCV** - Xử lý video và tiền xử lý hình ảnh
+- **Scikit-learn** - Tính toán metrics và evaluation
+
+### Frontend
+- **React 18** + **Vite** - UI framework hiện đại
+- **JavaScript/TypeScript** - Frontend logic
+- **CSS3** - Styling responsive
+
+### Infrastructure
+- **SQLite** - Database nhẹ cho hệ thống
+- **Docker** - Containerization
+- **TensorBoard** - Visualization training
+
+---
+
+## 🏗️ Kiến trúc hệ thống
+
+### Luồng xử lý chính
+
+```
+┌─────────────────────────┐
+│  Camera / Webcam        │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────────────┐
+│ Face Detection (SCRFD)          │ ← InsightFace
+└────────────┬────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────┐
+│ Face Alignment & Normalization  │ ← OpenCV
+└────────────┬────────────────────┘
+             │
+             ▼
+┌──────────────────────────────────────┐
+│ Feature Extraction (Embedding)       │ ← 512D Vector
+│ MobileNetV2 / InsightFace / ResNet-50│
+└────────────┬─────────────────────────┘
+             │
+             ▼
+┌──────────────────────────────────────┐
+│ Cosine Similarity Matching           │
+│ Compare với Database Embeddings      │
+└────────────┬─────────────────────────┘
+             │
+             ▼
+┌──────────────────────────────────────┐
+│ Threshold Verification & Validation  │
+└────────────┬─────────────────────────┘
+             │
+             ▼
+┌──────────────────────────────────────┐
+│ Attendance Recording                 │
+│ Save to Database & Update Dashboard  │
+└──────────────────────────────────────┘
+```
+
+### Model Architecture
+
+| Thành phần | Công nghệ | Chi tiết |
+|-----------|-----------|---------|
+| **Face Detection** | SCRFD | Nhanh, chính xác cao |
+| **Backbone (Feature Extraction)** | MobileNetV2 / ResNet-50 | 512D embedding vector |
+| **Loss Function** | ArcFace Margin Loss | Tối ưu hóa khoảng cách giữa classes |
+| **Deep Learning Framework** | PyTorch + ONNX | CPU/GPU inference support |
+| **Evaluation Metrics** | Scikit-learn | Accuracy, AUC, EER, FAR, FRR |
+
+---
+
+## 📁 Cấu trúc thư mục
+
+```
+Attendance_tracking/
+│
+├── 📂 src/                          # Source code chính
+│   ├── attendance/                  # Logic chấm công & database
+│   │   ├── realtime_recognition.py  # Chạy hệ thống real-time
+│   │   ├── build_embeddings.py      # Tạo embeddings từ dữ liệu
+│   │   └── database.py              # SQLite database functions
+│   │
+│   ├── capture/                     # Thu thập dữ liệu khuôn mặt
+│   │   └── capture_dataset.py       # Script capture từ camera
+│   │
+│   ├── models/                      # Định nghĩa kiến trúc mạng
+│   │   ├── mobilenetv2.py           # MobileNetV2 + ArcFace
+│   │   ├── resnet.py                # Custom ResNet-50
+│   │   └── arcface.py               # ArcFace Loss implementation
+│   │
+│   ├── training/                    # Training scripts
+│   │   ├── train_mobilenetv2_arcface.py  # Train MobileNetV2
+│   │   └── train_vggface2.py             # Train ResNet-50
+│   │
+│   ├── evaluation/                  # Evaluation & Benchmark
+│   │   ├── evaluate_mobilenetv2.py  # Evaluate MobileNetV2
+│   │   ├── evaluate_vggface2.py     # Evaluate ResNet-50
+│   │   └── evaluate_benchmark.py    # InsightFace baseline
+│   │
+│   ├── datasets/                    # PyTorch Dataset loaders
+│   │   ├── face_dataset.py          # Custom FaceDataset
+│   │   └── benchmark_dataset.py     # LFW, CALFW, etc.
+│   │
+│   └── utils/                       # Utility functions
+│       ├── transforms.py            # Data augmentation
+│       ├── logging.py               # Custom logging
+│       └── metrics.py               # Evaluation metrics
+│
+├── 📂 frontend_web/                 # React frontend
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.js
+│
+├── 📂 dataset/                      # Training & Benchmark datasets
+│   ├── benchmark/                   # LFW, CALFW, CPLFW, AgeDB-30
+│   └── vggface2_hq/                 # VGGFace2 training data
+│
+├── 📂 data/                         # System data (in-house)
+│   ├── inhouse/                     # Registered employee faces
+│   └── embeddings/                  # Pre-computed embeddings (.pkl)
+│
+├── 📂 checkpoints/                  # Model checkpoints (.pth)
+│   ├── mobilenetv2_best.pth
+│   ├── resnet50_best.pth
+│   └── ...
+│
+├── 📂 logs/                         # Training logs (CSV, TensorBoard)
+├── 📂 outputs/                      # Evaluation results & plots
+├── 📂 notebooks/                    # Jupyter notebooks for EDA
+│
+├── requirements.txt                 # Python dependencies
+├── .dockerignore
+├── Dockerfile                       # Docker configuration
+├── docker-compose.yml               # Docker compose
+└── README.md                        # This file
 ```
 
 ---
 
-## 5. Cấu trúc thư mục
+## 🚀 Hướng dẫn cài đặt
 
-```text
-face_attendance/
-├── checkpoints/              # Thư mục lưu các model checkpoints (.pth) khi train
-├── dataset/                  # Dữ liệu ảnh phục vụ training và evaluation
-│   ├── benchmark/            # LFW, CALFW, CPLFW, AgeDB-30
-│   └── vggface2_hq/          # Tập dữ liệu train
-├── data/                     # Dữ liệu hệ thống chấm công (inhouse data)
-│   ├── inhouse/              # Ảnh nhân viên đã đăng ký
-│   └── embeddings/           # Vector đặc trưng đã lưu (.pkl)
-├── logs/                     # File CSV lưu log quá trình train
-├── outputs/                  # Kết quả evaluation (biểu đồ ROC, CM, CSV)
-├── src/                      # Source code chính
-│   ├── attendance/           # Logic chấm công và database
-│   ├── capture/              # Scripts thu thập khuôn mặt từ camera
-│   ├── datasets/             # PyTorch Dataset Loaders
-│   ├── evaluation/           # Scripts đánh giá (LFW, đa tập, so sánh models)
-│   ├── models/               # Định nghĩa kiến trúc mạng (MobileNetV2, ResNet, ArcFace)
-│   ├── training/             # Scripts huấn luyện mô hình (train_mobilenetv2, vgg)
-│   └── utils/                # Hàm tiện ích (logging, transforms)
-├── notebooks/                # Jupyter Notebooks phục vụ EDA và thử nghiệm
-├── requirements.txt          # Danh sách thư viện phụ thuộc
-└── README.md
+### 📋 Yêu cầu hệ thống
+
+```
+✓ CPU: Intel Core i5 / AMD Ryzen 5 trở lên
+✓ RAM: 8GB+ (16GB+ nếu train model)
+✓ GPU: NVIDIA GPU với VRAM 8GB+ (tùy chọn, khuyến nghị)
+✓ Python: 3.10+
+✓ OS: Linux / macOS / Windows
 ```
 
----
+### 🔧 Bước 1: Clone repository
 
-## 6. Hướng dẫn cài đặt
-
-### 6.1 Yêu cầu hệ thống
-* CPU: Intel Core i5 trở lên
-* RAM: 8GB+ (Khuyến nghị 16GB để train model)
-* GPU: NVIDIA GPU (Khuyến nghị VRAM 8GB+ nếu train mô hình)
-* Python: 3.10 trở lên
-
-### 6.2 Cài đặt môi trường
-
-Clone repository và di chuyển vào thư mục dự án:
 ```bash
-git clone https://github.com/QDat18/-Group4-TriTueNhanTao.git
-cd -Group4-TriTueNhanTao
+git clone https://github.com/QDat18/Attendance_tracking.git
+cd Attendance_tracking
 ```
 
-Tạo và kích hoạt môi trường ảo (Conda/Venv):
+### 📦 Bước 2: Tạo môi trường ảo
+
+**Với Conda:**
 ```bash
-conda create -n deepfake python=3.10
-conda activate deepfake
+conda create -n attendance python=3.10
+conda activate attendance
 ```
 
-Cài đặt các thư viện cần thiết:
+**Với Venv (Python):**
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/macOS
+# hoặc: venv\Scripts\activate  # Windows
+```
+
+### ⚙️ Bước 3: Cài đặt dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-Nếu chạy Inference với CPU, cài đặt ONNX Runtime:
+**Cài đặt ONNX Runtime (tùy chọn):**
+
 ```bash
+# Cho CPU
 pip install onnxruntime
-```
-Nếu có GPU NVIDIA, cài đặt bản GPU:
-```bash
+
+# Cho GPU NVIDIA
 pip install onnxruntime-gpu
+```
+
+### 🐳 Bước 4 (Tùy chọn): Chạy với Docker
+
+```bash
+docker-compose up -d
 ```
 
 ---
 
-## 7. Hướng dẫn sử dụng
+## 📖 Hướng dẫn sử dụng
 
-### 7.1 Huấn luyện mô hình (Training)
+### 1️⃣ Thu thập khuôn mặt nhân viên mới
 
-**1. Huấn luyện mô hình MobileNetV2 (Nhẹ, tốc độ cao):**
-Để tự huấn luyện mô hình MobileNetV2 từ đầu với ArcFace:
 ```bash
-python -m src.training.train_mobilenetv2_arcface
+# Chụp 50 ảnh cho nhân viên ID = NV001
+python -m src.capture.capture_dataset --employee_id NV001 --max_images 50
 ```
 
-**2. Huấn luyện mô hình Custom ResNet-50 (Độ chính xác cao):**
-Mô hình này được huấn luyện trên các tập dữ liệu lớn như VGGFace2 để tối ưu hóa khả năng trích xuất đặc trưng khuôn mặt:
+**Tham số:**
+- `--employee_id`: ID nhân viên (bắt buộc)
+- `--max_images`: Số ảnh thu thập (mặc định: 30)
+- `--output_dir`: Thư mục lưu ảnh (mặc định: `data/inhouse/`)
+
+### 2️⃣ Tạo embeddings từ dữ liệu nhân viên
+
 ```bash
-python -m src.training.train_vggface2
+# Xử lý tất cả ảnh và tạo embeddings
+python -m src.attendance.build_embeddings
 ```
 
-Quá trình huấn luyện sẽ tự động lưu lại các checkpoints tại `checkpoints/` và lịch sử training (loss, accuracy) vào thư mục `logs/`.
+Điều này sẽ:
+- Phát hiện khuôn mặt từ ảnh nhân viên
+- Trích xuất 512D embedding vector
+- Lưu vào `data/embeddings/employee_embeddings.pkl`
 
-### 7.2 Đánh giá mô hình (Evaluation)
+### 3️⃣ Chạy hệ thống chấm công real-time
 
-**Đánh giá MobileNetV2** trên tất cả các tập benchmark (LFW, CALFW, CPLFW, AgeDB-30):
+```bash
+# Mở webcam và bắt đầu nhận diện
+python -m src.attendance.realtime_recognition
+```
+
+**Các tính năng:**
+- 📹 Hiển thị video real-time từ webcam
+- 👤 Nhận diện tự động khuôn mặt
+- ⏱️ Ghi nhận thời gian chấm công
+- 💾 Lưu vào database SQLite
+
+**Điều khiển:**
+- Nhấn `Q` để thoát
+- Nhấn `S` để lưu ảnh snapshot
+
+### 4️⃣ Huấn luyện mô hình (Optional)
+
+#### **Huấn luyện MobileNetV2 (Nhẹ & nhanh)**
+
+```bash
+python -m src.training.train_mobilenetv2_arcface \
+    --epochs 50 \
+    --batch_size 128 \
+    --lr 0.001 \
+    --device cuda  # hoặc 'cpu'
+```
+
+#### **Huấn luyện ResNet-50 Custom (Độ chính xác cao)**
+
+```bash
+python -m src.training.train_vggface2 \
+    --epochs 100 \
+    --batch_size 64 \
+    --lr 0.0001 \
+    --device cuda
+```
+
+### 5️⃣ Đánh giá hiệu năng mô hình
+
+#### **Đánh giá MobileNetV2**
+
 ```bash
 python -m src.evaluation.evaluate_mobilenetv2 --dataset all
 ```
 
-**Đánh giá Custom ResNet-50 (VGG Checkpoints)** trên các tập benchmark:
+#### **Đánh giá ResNet-50**
+
 ```bash
 python -m src.evaluation.evaluate_vggface2 --dataset all
 ```
 
-**Đánh giá InsightFace (Baseline)** trên các tập benchmark để so sánh:
-```bash
-python -m src.evaluation.evaluate_benchmark --model-type baseline --dataset all
-```
-Kết quả đánh giá, biểu đồ ROC, và Confusion Matrix sẽ được lưu tại thư mục `outputs/evaluation/`.
+#### **So sánh với InsightFace Baseline**
 
-### 7.3 Sử dụng hệ thống chấm công (Inference/Realtime)
-
-**Bước 1: Thu thập khuôn mặt nhân viên mới**
 ```bash
-python -m src.capture.capture_dataset --employee_id NV001 --max_images 50
+python -m src.evaluation.evaluate_benchmark \
+    --model-type baseline \
+    --dataset all
 ```
 
-**Bước 2: Cập nhật Embedding cho toàn bộ hệ thống**
-```bash
-python -m src.attendance.build_embeddings
-```
-
-**Bước 3: Chạy ứng dụng chấm công Real-time**
-```bash
-python -m src.attendance.realtime_recognition
-```
-Hệ thống sẽ mở webcam, tự động nhận diện và cập nhật vào file/database lịch sử.
+**Kết quả sẽ lưu tại:** `outputs/evaluation/`
+- ROC curves
+- Confusion matrices
+- CSV reports
+- Performance plots
 
 ---
 
-## 8. Các chỉ số đánh giá (Metrics)
+## 📊 Đánh giá hiệu năng
 
-Hệ thống sử dụng các tiêu chuẩn đo lường khắt khe trong nhận diện sinh trắc học:
-* **Accuracy:** Tỷ lệ nhận diện đúng trên toàn bộ cặp (Pair matching).
-* **AUC (Area Under ROC Curve):** Khả năng phân biệt của mô hình.
-* **EER (Equal Error Rate):** Điểm tối ưu mà ở đó tỷ lệ từ chối sai (FRR) bằng tỷ lệ chấp nhận sai (FAR). Càng thấp càng tốt.
-* **FAR (False Acceptance Rate):** Tỷ lệ nhận diện nhầm người lạ thành người quen.
-* **FRR (False Rejection Rate):** Tỷ lệ không nhận ra nhân viên.
+### Các chỉ số (Metrics)
+
+| Chỉ số | Giải thích | Ý nghĩa |
+|--------|-----------|--------|
+| **Accuracy** | Tỷ lệ nhận diện đúng | Càng cao càng tốt (%) |
+| **Precision** | Tỷ lệ dương tính đúng | Độ tin cậy khi nhận diện |
+| **Recall** | Tỷ lệ phát hiện | Khả năng bắt được tất cả |
+| **AUC** | Diện tích dưới ROC curve | 0.0 → 1.0 (1.0 là tốt nhất) |
+| **EER** | Equal Error Rate | Điểm cân bằng FAR=FRR (% thấp hơn tốt) |
+| **FAR** | False Acceptance Rate | Nhận nhầm người lạ (% thấp hơn tốt) |
+| **FRR** | False Rejection Rate | Không nhận ra nhân viên (% thấp hơn tốt) |
+
+### Benchmark Results
+
+Các mô hình được đánh giá trên 4 tập chuẩn quốc tế:
+
+- **LFW** (Labeled Faces in the Wild) - 6,000 cặp ảnh
+- **CALFW** (Cross-Age LFW) - 4,025 cặp ảnh
+- **CPLFW** (Celebs in Profiles in the Wild) - 6,000 cặp ảnh
+- **AgeDB-30** (Age Database) - 12,000 cặp ảnh
 
 ---
 
-## 9. Đội ngũ phát triển
+## 🤝 Đội phát triển
 
-**Tên nhóm:** Nhóm 4 (Lớp Trí Tuệ Nhân Tạo)
+**Tên nhóm:** Nhóm 4 - Lớp Trí Tuệ Nhân Tạo
 
 **Trường:** Học viện Ngân hàng
 
+**Đơn vị:** Khoa Công Nghệ Thông Tin
+
 ---
 
-## 10. Giấy phép (License)
-Dự án được xây dựng nhằm mục đích học tập, nghiên cứu môn học. Việc sử dụng các mô hình, dataset (LFW, VGGFace2) tuân thủ giấy phép nguồn mở tương ứng. Không sử dụng cho mục đích thương mại khi chưa có sự cho phép của chủ sở hữu bộ dữ liệu.
+## 📝 Giấy phép (License)
+
+Dự án này được xây dựng cho mục đích **học tập và nghiên cứu**.
+
+Việc sử dụng các mô hình, dataset tuân thủ giấy phép nguồn mở:
+- 📚 **LFW Dataset** - [License](http://vis-www.cs.umass.edu/lfw/)
+- 🎬 **VGGFace2** - [License](https://www.robots.ox.ac.uk/~vgg/data/vgg_face2/)
+- 🧠 **InsightFace** - [MIT License](https://github.com/deepinsight/insightface)
+- 🔧 **PyTorch** - [BSD License](https://github.com/pytorch/pytorch)
+- 📷 **OpenCV** - [Apache 2 License](https://github.com/opencv/opencv)
+
+---
+
+## 🌐 Liên kết hữu ích
+
+- 🚀 [Live Demo](https://aichamcong.vercel.app)
+- 📖 [InsightFace GitHub](https://github.com/deepinsight/insightface)
+- 🔗 [PyTorch Documentation](https://pytorch.org)
+- 📚 [OpenCV Documentation](https://docs.opencv.org)
+
+---
+
+## 💡 Ghi chú
+
+- Hệ thống hoạt động tốt nhất trong điều kiện ánh sáng tốt
+- Khuyến nghị sử dụng khoảng 50+ ảnh để đăng ký mỗi nhân viên
+- GPU NVIDIA đáng khuyến nghị cho việc huấn luyện model
+- Thư mục `data/inhouse/` chứa dữ liệu nhạy cảm - hãy bảo vệ nó tốt!
+
+---
+
+<div align="center">
+
+**Made with ❤️ by Group 4**
+
+⭐ Nếu bạn thích dự án này, hãy cho nó một star!
+
+</div>
